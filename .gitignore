@@ -1,0 +1,21 @@
+# ignore maps data
+*.graphml
+
+#ignore map distances
+*.json
+
+#ignore python cache
+*.pyc
+
+#ignore python cache
+*.log
+
+#ignore network images
+*.png
+
+#ignore MILP debug
+*.debug.lp
+
+
+
+
