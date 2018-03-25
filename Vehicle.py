@@ -37,6 +37,11 @@ class Vehicle(object):
     color[20] = "(0, 0, 0)"
 
     n_vehicles = 0
+
+    @classmethod
+    def reset_vehicles_ids(cls):
+        cls.n_vehicles = 0
+
     def get_type(self):
         return self.type_vehicle
 

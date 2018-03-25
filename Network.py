@@ -690,7 +690,7 @@ def gen_od_data(**args):
         
         m_from = r_from_to[0] #e.g.: autonomous
         m_to = r_from_to[1] #e.g.: conventional
-        print("REQUEST FROM/TO REGION:", m_from, "-->", m_to)
+        # print("REQUEST FROM/TO REGION:", m_from, "-->", m_to)
         
 
         # Suppose m_from = m_to, therefore a "m_to" vehicle
@@ -702,9 +702,11 @@ def gen_od_data(**args):
             dist_mode = "dual"
         
         # How many requests per configuration
-        req_per_mode = demand_dist_mode[r_from_to]
-        print("req per mode:", req_per_mode)
-        for i in range(0, req_per_mode):
+        percentage_req_per_mode = demand_dist_mode[r_from_to]
+
+        n_req_mode = int(percentage_req_per_mode * n_of_requests)
+        print("req per mode:", n_req_mode)
+        for i in range(0, n_req_mode):
             #print("from_to", from_node)
             #print("dist_keys", dist[from_node])
 
@@ -775,24 +777,13 @@ def gen_vehicle_data(**args):
         return selected
 
     def get_n_random_points_around_elements(n, elements, mode):
-        """[summary]
-        
-        Arguments:
-            n {[type]} -- [description]
-            elements {[type]} -- [description]
-            mode {[type]} -- [description]
-        
-        Returns:
-            [type] -- [description]
-        """
-
         selected = list()
         max_per_elem = int(n/len(elements))
         # Rest of division
         remaining = n % len(elements)
         for e in elements:
             to_nodes = list(dist[str(e)][mode].keys())
-            print("to_nodes", to_nodes)
+            # print("to_nodes", to_nodes)
             # Equally distribute the remaining nodes
             # (when rest of division is not zero) among the elements
             n = max_per_elem
@@ -848,7 +839,7 @@ def gen_vehicle_data(**args):
 def get_largest_connected_components(G, nodes):
     """Return the largest strongly connected component of graph G.
     Only components containing at least one element in nodes
-    are returd
+    are returned
 
     Arguments:
         G {networkx} -- Graph

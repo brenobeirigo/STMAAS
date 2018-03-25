@@ -3,11 +3,13 @@ from datetime import datetime, date, time, timedelta
 from Compartment import *
 import math
 import random
+import os
 from collections import OrderedDict
 from Network import *
 
 
 class GenTestCase:
+    # Earliest time possible
     start_revealing = '2017-10-10 00:00'
     start_revealing_t = datetime.strptime('2017-10-10 00:00:00', '%Y-%m-%d %H:%M:%S')
     start_revealing_tstamp = start_revealing_t.timestamp()
@@ -18,7 +20,7 @@ class GenTestCase:
     network_instances = OrderedDict({
                         "REGION": ['Delft, The Netherlands'],
                         "SUBNETWORK_TYPES": ["zones", "subnetworks"],
-                        "SPREAD": [0.75],
+                        "SPREAD": [0.1, 0.25, 0.50],
                         "#ZONES": [1,2,4,8],
                         "#TEST": 10,
                         "SAVE_FIG": True,
@@ -27,25 +29,28 @@ class GenTestCase:
 
     r_info_dual_mode = OrderedDict({
                           
-                          "#REQUESTS": [10],
+                          "#REQUESTS": [20],
 
-                          "DEMAND_DIST_MODE": {"D1":{("autonomous", "autonomous"):2,
-                                                     ("autonomous", "conventional"):3,
-                                                     ("conventional", "autonomous"):3,
-                                                     ("conventional", "conventional"):2}},
+                          "DEMAND_DIST_MODE": {"D1":{("autonomous", "autonomous"):0.2,
+                                                     ("autonomous", "conventional"):0.3,
+                                                     ("conventional", "autonomous"):0.3,
+                                                     ("conventional", "conventional"):0.2}},
                            
-                          "SL_SHARE": {"S1":{"C":{"request_share":2, "overall_sl":0.7,"pk_delay":300, "trip_delay":600},
-                                             "B":{"request_share":6, "overall_sl":0.8,"pk_delay":180, "trip_delay":300},
-                                             "A":{"request_share":2, "overall_sl":0.9,"pk_delay":120, "trip_delay":0}}},
+                          "SL_SHARE": {"S1":{"C":{"request_share":0.2, "overall_sl":0.7,"pk_delay":300, "trip_delay":600},
+                                             "B":{"request_share":0.6, "overall_sl":0.8,"pk_delay":180, "trip_delay":300},
+                                             "A":{"request_share":0.2, "overall_sl":0.9,"pk_delay":120, "trip_delay":0}}},
 
                           "INTERVAL": {"05-10min": (300, 600)},
                           
-                          "TRIPS_DIST": {"0.5km-1km": (500, 1000)},
+                          "TRIPS_DIST": {"0.1km-10km": (100, 10000)},
                           
                           "DEMAND_LIMIT": {("A5"): {"H": [CompartmentHuman("A", 5)]}}})
                                                        
-    v_info_dual = OrderedDict({"#VEHICLES": [8],
-                               "COMPARTMENTS DIV.": {"A5": [CompartmentHuman("A", 5)]}})
+    v_info_dual = OrderedDict({"#VEHICLES": [20],
+                               "COMPARTMENTS DIV.": {"A5": [CompartmentHuman("A", 5)]},
+                               "MODE_INFO":{"autonomous":{"fixed_cost":20000, "var_cost":0.001},
+                                              "dual":{"fixed_cost":15000, "var_cost":0.002},
+                                      "conventional":{"fixed_cost":10000, "var_cost":0.001}}})
                                
     vehicle_tuples = None
     request_tuples = None
@@ -61,11 +66,11 @@ class GenTestCase:
         get_instance_file_name(st, i, get_file_name(r), p, nz)
         if st == "zones" else
         get_instance_file_name(st, i, get_file_name(r), p)    
-        for r in cls.network_instances["REGIONS"]
+        for r in cls.network_instances["REGION"]
         for p in cls.network_instances["SPREAD"]
         for st in cls.network_instances["SUBNETWORK_TYPES"]
-        for i in range(1, cls.network_instances["N_OF_INSTANCES"]+1)
-        for nz in cls.network_instances["N_ZONES"]])
+        for i in range(1, cls.network_instances["#TEST"]+1)
+        for nz in cls.network_instances["#ZONES"]])
         
     @classmethod
     def gen_vehicles_tuples(cls):
@@ -142,52 +147,66 @@ class GenTestCase:
                 selected.append(el)
         return selected
 
+
     @staticmethod
     def genVehicles2(path_vehicles, network_path):
 
-        print("Creating vehicle instances...")
-
+        print("Creating vehicle instances...",  GenTestCase.vehicle_tuples
+        )
+            
         n_vehicles = GenTestCase.v_info_dual["#VEHICLES"]
         compartments = GenTestCase.v_info_dual["COMPARTMENTS DIV."]
 
         min_distance = 0
         max_distance = 100000
 
-        for v in n_vehicles:
-            for k, comp in compartments.items():
+        # Set of test cases to be generated
+        gen_set = set()
+        # Loop all vehicle test cases and store those not yet
+        # tested to set gen_set
+        for v_k in GenTestCase.vehicle_tuples:
+            print("Checking", path_vehicles +"/" + v_k +".csv")
+            if not os.path.isfile(path_vehicles +"/" + v_k +".csv"):
+                test_case = v_k.split("_")
+                gen_set.add((int(test_case[0]), test_case[1]))
+            else:
+                print(path_vehicles +"/" + v_k +".csv already exists.")
+        
+        # Generate test cases not yet generated
+        for v, k in gen_set:
 
-                # Get vehicles' origins
-                list_of_vehicles_origins = gen_vehicle_data(n_of_vehicles = v,
-                                                            network_path = network_path)
-                labels = list()
-                values = list()
+            # Get vehicles' origins
+            list_of_vehicles_origins = gen_vehicle_data(n_of_vehicles = v,
+                                                        network_path = network_path)
+            labels = list()
+            values = list()
 
-                for c in comp:
-                   labels.append(c.get_label())
-                   values.append(c.get_amount())
+            for c in compartments[k]:
+                labels.append(c.get_label())
+                values.append(c.get_amount())
 
-                name_instance = "{0:02}_{1}.csv".format(v, k)
+            name_instance = "{0:02}_{1}.csv".format(v, k)
 
-                csv_label = "Model,Type,Available_at,Latitude,Longitude,Origin_id,Autonomy," + \
-                    ",".join(labels)+"\n"
+            csv_label = "Model,Type,Available_at,Latitude,Longitude,Origin_id,Autonomy," + \
+                ",".join(labels)+"\n"
 
-                with open(path_vehicles +"/"+ name_instance, 'w') as file:
-                    file.write(csv_label)
+            with open(path_vehicles +"/"+ name_instance, 'w') as file:
+                file.write(csv_label)
 
-                for e in list_of_vehicles_origins:
+            for e in list_of_vehicles_origins:
 
-                    str_id = k + "_" + GenTestCase.mode_code[e["type"]]
+                str_id = k + "_" + GenTestCase.mode_code[e["type"]]
 
-                    print("Generating vehicles:", str_id)
+                #print("Generating vehicles:", str_id)
 
-                    loads_v = ",".join([str(v) for v in values])
+                loads_v = ",".join([str(v) for v in values])
 
-                    csv_response = "{0},{1},{2},{3:.6f},{4:.6f},{5},{6},{7}\n".format(str_id, e["type"], GenTestCase.start_revealing, float(
-                        e["origin_longitude"]), float(e["origin_latitude"]), e['origin_id'], 8, loads_v )
-                    print(csv_response)
+                csv_response = "{0},{1},{2},{3:.6f},{4:.6f},{5},{6},{7}\n".format(str_id, e["type"], GenTestCase.start_revealing, float(
+                    e["origin_longitude"]), float(e["origin_latitude"]), e['origin_id'], 8, loads_v )
+                #print(csv_response)
 
-                    with open(path_vehicles +"/"+ name_instance, 'a') as file:
-                        file.write(csv_response)
+                with open(path_vehicles +"/"+ name_instance, 'a') as file:
+                    file.write(csv_response)
 
     @staticmethod
     def genVehicles(instance_path):
@@ -384,107 +403,130 @@ class GenTestCase:
         demand_dist_mode = GenTestCase.r_info_dual_mode["DEMAND_DIST_MODE"]
         service_level_share = GenTestCase.r_info_dual_mode["SL_SHARE"]
 
-        # Vary trip distances, e.g.: "0.5km-1km": (500, 1000)
-        for td in trips_distance.keys():
+        # Set of test cases to be generated
+        gen_set = set()
+        # Loop all vehicle test cases and store those not yet
+        # tested to set gen_set
+        # Example of request name: 10_D1_S1_05-10min-0.5km-1km_A5
+        for req_name in GenTestCase.request_tuples:
+            req_path =  path_requests +"/" + req_name +".csv"
+            print("Checking request ", req_path)
+            if not os.path.isfile(req_path):
+                test_case = req_name.split("_")
+                gen_set.add((int(test_case[0]),
+                                 test_case[1],
+                                 test_case[2],
+                                 test_case[3],
+                                 test_case[4],
+                                 test_case[5]))
+            else:
+                print("Request", req_path, "already exists.")
+
+        
+        # Generate test cases not yet generated
+        # nr     = Vary number of requests, e.g.: 8
+        # td     = Vary trip distances, e.g.: "0.5km-1km": (500, 1000)
+        # d_mode = Vary demand distribution (from->to), e.g.:
+                    # {"D1":{("autonomous", "autonomous"):2,
+                    #        ("autonomous", "conventional"):3,
+                    #        ("conventional", "autonomous"):3,
+                    #        ("conventional", "conventional"):2}},
+        # ibr    = Vary interval between requests, e.g.:{"05-10min": (300, 600)}
+        # k      = Vary compartments of vehicles {("A5"): {"H": [CompartmentHuman("A", 5)]}}
+        # sl     = Vary service levels
+        for nr, d_mode, sl, ibr, td, k in gen_set:
+            
+            # Set max traveled distances
             max_distance = trips_distance[td][1]
-            min_distance = trips_distance[td][0]
-            # Vary number of requests, e.g.: 8
-            for nr in n_requests:
-                # Vary demand distribution (from->to), e.g.:
-                # {"D1":{("autonomous", "autonomous"):2,
-                #        ("autonomous", "conventional"):3,
-                #        ("conventional", "autonomous"):3,
-                #        ("conventional", "conventional"):2}},
-                for d_mode, distr in demand_dist_mode.items():
-                    # 
-                    list_of_requests = gen_od_data(
-                                        min_distance = min_distance,
-                                        max_distance = max_distance,
-                                        n_of_requests = nr,
-                                        demand_dist_mode = distr,
-                                        network_path = network_path)
+            min_distance = trips_distance[td][0]    
+            
+            # Set demand distribution (A->A, A->C, etc.)
+            distr = demand_dist_mode[d_mode]
+            
+            # Generate requests coordinates
+            list_of_requests = gen_od_data(
+                                min_distance = min_distance,
+                                max_distance = max_distance,
+                                n_of_requests = nr,
+                                demand_dist_mode = distr,
+                                network_path = network_path)
 
-                    print ("len:", len(list_of_requests))
-                    # Vary interval between requests, e.g.:
-                    # {"05-10min": (300, 600)}
-                    for ibr in interval_between_requests.keys():
-                        # Set intervals
-                        min_interval = interval_between_requests[ibr][0]
-                        max_interval = interval_between_requests[ibr][1]
-                        
-                        # Format start date
-                        start_date = datetime.strptime(GenTestCase.start_revealing,
-                                                       '%Y-%m-%d %H:%M')
-                        
-                        # pprint.pprint(list_of_requests)
-                        # Vary compartments of vehicles
-                        # {("A5"): {"H": [CompartmentHuman("A", 5)]}}
-                        for k, comp in [(k, demand_limit[k]) for k in demand_limit.keys()]:
-                            #{"S1":{"C":{"request_share":0.2, "overall_sl":0.7,"pk_delay":1600, "trip_delay":1600},
-                            #       "B":{"request_share":0.6, "overall_sl":0.8,"pk_delay":1300, "trip_delay":1300},
-                            #       "A":{"request_share":0.2, "overall_sl":0.9,"pk_delay":1180, "trip_delay":1180}}}})
-                            for sl in service_level_share.keys():
-                            
-                                # Set instance name
-                                instance_name = "{0:02}_{1}_{2}_{3}_{4}_{5}.csv".format(
-                                    nr, d_mode, sl, ibr, td, k)
-
-
-                                sl_request_list = list()
-                                #{"C":{"request_share":2, "overall_sl":0.7,"pk_delay":1600, "trip_delay":1600},
-                                # "B":{"request_share":6, "overall_sl":0.8,"pk_delay":1300, "trip_delay":1300},
-                                # "A":{"request_share":2, "overall_sl":0.9,"pk_delay":1180, "trip_delay":1180}}}})
-                                for sl_label in service_level_share[sl].keys():
-                                    print("Service level:", sl_label)
-                                    pk_delay = service_level_share[sl][sl_label]["pk_delay"]
-                                    trip_delay = service_level_share[sl][sl_label]["trip_delay"]
-                                    request_share = service_level_share[sl][sl_label]["request_share"]
-                                    label_list = [(sl_label,pk_delay,trip_delay)] * request_share
-                                    sl_request_list.extend(label_list)
+            print ("len:", len(list_of_requests))
+            
+            # Set intervals
+            min_interval = interval_between_requests[ibr][0]
+            max_interval = interval_between_requests[ibr][1]
+            
+            # Format start date
+            start_date = datetime.strptime(GenTestCase.start_revealing,
+                                            '%Y-%m-%d %H:%M')
+            
+            # Set compartments
+            #{"S1":{"C":{"request_share":0.2, "overall_sl":0.7,"pk_delay":1600, "trip_delay":1600},
+                #       "B":{"request_share":0.6, "overall_sl":0.8,"pk_delay":1300, "trip_delay":1300},
+                #       "A":{"request_share":0.2, "overall_sl":0.9,"pk_delay":1180, "trip_delay":1180}}}})
+            comp = demand_limit[k]
                                 
-                                print("sl label:", sl_request_list)
-
-                                print("Instance name:", instance_name)
-                                offset_cumulative = timedelta(seconds=0)
-                                
-                                # Create label
-                                csv_label = "revealing,pickup_x,pickup_y,dropoff_x,dropoff_y,order,pickup_lateness,delivery_lateness,pk_node_id,dl_node_id,sl_class,id\n"
-
-                                # Write label to file
-                                with open(path_requests +"/"+ instance_name, 'w') as file:
-                                    file.write(csv_label)
+            # Set instance name
+            instance_name = "{0:02}_{1}_{2}_{3}_{4}_{5}.csv".format(
+                nr, d_mode, sl, ibr, td, k)
 
 
-                                for i, e in enumerate(list_of_requests):
+            sl_request_list = list()
+            #{"C":{"request_share":2, "overall_sl":0.7,"pk_delay":1600, "trip_delay":1600},
+            # "B":{"request_share":6, "overall_sl":0.8,"pk_delay":1300, "trip_delay":1300},
+            # "A":{"request_share":2, "overall_sl":0.9,"pk_delay":1180, "trip_delay":1180}}}})
+            for sl_label in service_level_share[sl].keys():
+                print("Service level:", sl_label)
+                pk_delay = service_level_share[sl][sl_label]["pk_delay"]
+                trip_delay = service_level_share[sl][sl_label]["trip_delay"]
+                request_share = int(service_level_share[sl][sl_label]["request_share"]*nr)
+                label_list = [(sl_label,pk_delay,trip_delay)] * request_share
+                sl_request_list.extend(label_list)
+            
+            #print("sl label:", sl_request_list)
 
-                                    # Set rand interval
-                                    rand_offset = randint(min_interval, max_interval)
-                                    offset = timedelta(seconds=rand_offset)
-                                    offset_cumulative += offset
-                                    revealing_time = start_date + offset_cumulative
+            print("Instance name:", instance_name)
+            offset_cumulative = timedelta(seconds=0)
+            
+            # Create label
+            csv_label = "revealing,pickup_x,pickup_y,dropoff_x,dropoff_y,order,pickup_lateness,delivery_lateness,pk_node_id,dl_node_id,sl_class,id\n"
 
-                                    # Final list of compartments in request
-                                    comp_chosen = GenTestCase.getRandomCompartments(comp["H"])
+            # Write label to file
+            with open(path_requests +"/"+ instance_name, 'w') as file:
+                file.write(csv_label)
 
-                                    e["demand"] = "/".join(str(c.get_random_copy()) for c in comp_chosen)
-                                    csv_data = "{0},{1:.6f},{2:.6f},{3:.6f},{4:.6f},{5},{6},{7},{8},{9},{10},".format(
-                                        revealing_time.strftime('%Y-%m-%d %H:%M'),
-                                        float(e["pickup_longitude"]),
-                                        float(e["pickup_latitude"]),
-                                        float(e["dropoff_longitude"]),
-                                        float(e["dropoff_latitude"]),
-                                        e["demand"],
-                                        sl_request_list[i][1],
-                                        sl_request_list[i][2],
-                                        e["pickup_id"],
-                                        e["dropoff_id"],
-                                        sl_request_list[i][0])
-                                        
-                                    with open(path_requests +"/"+
-                                              instance_name, 'a') as file:
-                                        file.write(csv_data+"\n")
 
-                                    print(csv_data)
+            for i, e in enumerate(list_of_requests):
+
+                # Set rand interval
+                rand_offset = randint(min_interval, max_interval)
+                offset = timedelta(seconds=rand_offset)
+                offset_cumulative += offset
+                revealing_time = start_date + offset_cumulative
+
+                # Final list of compartments in request
+                comp_chosen = GenTestCase.getRandomCompartments(comp["H"])
+
+                e["demand"] = "/".join(str(c.get_random_copy()) for c in comp_chosen)
+                csv_data = "{0},{1:.6f},{2:.6f},{3:.6f},{4:.6f},{5},{6},{7},{8},{9},{10},".format(
+                    revealing_time.strftime('%Y-%m-%d %H:%M'),
+                    float(e["pickup_longitude"]),
+                    float(e["pickup_latitude"]),
+                    float(e["dropoff_longitude"]),
+                    float(e["dropoff_latitude"]),
+                    e["demand"],
+                    sl_request_list[i][1],
+                    sl_request_list[i][2],
+                    e["pickup_id"],
+                    e["dropoff_id"],
+                    sl_request_list[i][0])
+                    
+                with open(path_requests +"/"+
+                            instance_name, 'a') as file:
+                    file.write(csv_data+"\n")
+
+                print(csv_data)
 
     @staticmethod
     def genAllTestCases(instance_path_vehicle,
@@ -493,7 +535,10 @@ class GenTestCase:
         print("Starting test case generation...")
     
         print("   Generating networks...")
-        GenTestCase.generate_network_instances(instance_path_network)
+
+        print(GenTestCase.get_network_tuples_not_tested(instance_path_network))
+
+        #GenTestCase.generate_network_instances(instance_path_network)
         GenTestCase.gen_network_tuples()
         
         for nw in GenTestCase.network_tuples:
@@ -664,6 +709,30 @@ class GenTestCase:
             return False
         else:
             return True
+
+    @staticmethod
+    def get_network_tuples_not_tested(path_instances):
+        # Set of test cases to be generated
+        gen_set = set()
+        # Loop all vehicle test cases and store those not yet
+        # tested to set gen_set
+        # Example of request name: delft-the-netherlands_subnetworks_S010_SUB_02
+        for nw_name in GenTestCase.network_tuples:
+            nw_path =  path_instances +"/" + nw_name +".csv"
+            print("Checking request ", nw_path)
+            if not os.path.isfile(nw_path):
+                test_case = nw_name.split("_")
+                reg = test_case[0]
+                sub = test_case[1]
+                spr = int(test_case[2][1:])/100
+                zon = test_case[3]
+                zon = (int(zon[1:]) if zon[0]=="Z" else 0)
+                t = int(test_case[4])
+                gen_set.add((reg,sub,spr,zon,t))
+            else:
+                print("Request", req_path, "already exists.")
+        
+        return gen_set
 
     @staticmethod
     def generate_network_instances(path_instances):

@@ -3,7 +3,7 @@ from gurobipy import *
 import pprint
 from Response import *
 from DaoHybrid import *
-
+from GenTestCase import GenTestCase
 from datetime import *
 import logging
 logger = logging.getLogger("main.opt_method")
@@ -22,7 +22,7 @@ class OptMethod(object):
         # Declare the response of the method
         self.response = None
 
-        logger.info(
+        logger.debug(
             "############################ INIT OPT METHOD #############################")
 
         # Create copy of DAO
@@ -50,7 +50,8 @@ class OptMethod(object):
         self.reachable = DAO.get_reachable()
 
         self.earliest_latest = DAO.get_earliest_latest()
-        logger.debug("################################ EARLIEST LATEST ##########################################")
+        logger.debug(
+            "################################ EARLIEST LATEST ##########################################")
         logger.debug(pprint.pformat(self.earliest_latest))
 
         # List of all arcs  = [( p9 , p6, autonomous ), ( p1 , p2, conventional  ), ...]
@@ -61,35 +62,36 @@ class OptMethod(object):
         #   - There are no arcs from delivery to origin pairs
         #     (Vehicle always visit pk before dl)
 
-        logger.info("################################# MATRIX ##################################")
+        logger.debug(
+            "################################# MATRIX ##################################")
         for p1, p2, m in self.dist_matrix.keys():
-            logger.info("%s %s %s", (p1 + "(depot)" if isinstance(self.nodes_dic[p1], NodeDepot) else p1), (
+            logger.debug("%s %s %s", (p1 + "(depot)" if isinstance(self.nodes_dic[p1], NodeDepot) else p1), (
                 p2 + "(DL)" if isinstance(self.nodes_dic[p2], NodeDL) else p2), m)
 
         self.arcs, self.times = multidict({(p1, p2, m): self.dist_matrix[p1, p2, m]
                                            for p1, p2, m in self.dist_matrix.keys()})
 
-        logger.info(
+        logger.debug(
             "################################# ARCS ####################################")
-        logger.info(pprint.pformat(list(self.arcs)))
+        logger.debug(pprint.pformat(list(self.arcs)))
 
-        logger.info(
+        logger.debug(
             '################################# TIMES ###################################')
-        logger.info(pprint.pformat(list(self.times)))
+        logger.debug(pprint.pformat(list(self.times)))
 
         # Delay in seconds to go from point p1 to point p2 in vehicle k
         self.cost_in_s = {(p1, p2, m): self.dist_matrix[p1, p2, m]
                           for p1, p2, m in self.arcs}
 
-        logger.info(
+        logger.debug(
             '#### COST #####################################################################')
 
-        logger.info(pprint.pformat(list(self.cost_in_s)))
+        logger.debug(pprint.pformat(list(self.cost_in_s)))
 
-        logger.info(
+        logger.debug(
             '#### VEHICLES #################################################################')
 
-        logger.info(pprint.pformat(list(self.vehicles_dic)))
+        logger.debug(pprint.pformat(list(self.vehicles_dic)))
 
         # Get dictionary of requests ex.: {'PK1':Req}
         self.request_dic = self.DAO.get_request_dic()
@@ -130,6 +132,8 @@ class OptMethod(object):
 
         # Parcel dictionary, e.g. {'AV1_0': ['L', 'XL'], 'AV2_0': ['S']}
         self.lockers_v = self.DAO.get_lockers_v()
+
+        self.vehicle_nodes = self.DAO.get_vehicles_nodes()
 
     def __str__(self):
         str = '################### PRINT ####################################'
@@ -237,6 +241,32 @@ class SARP_PL(OptMethod):
             return True
         return False
 
+    def get_big_m(self, k, i, j):
+        k_mode = self.vehicles_dic[k].get_type()
+        latest_i = self.earliest_latest[(k_mode, i)]["latest"]
+        earliest_i = self.earliest_latest[(k_mode, i)]["earliest"]
+        service_i = self.earliest_latest[(k_mode, i)]["service"]
+        pk_delay_i = self.earliest_latest[(k_mode, i)]["delay"]
+        t_i_j = self.times[i, j, k_mode]
+        
+        earliest_j = self.earliest_latest[(k_mode, j)]["earliest"]
+        big_m = latest_i + t_i_j + service_i - earliest_j
+        # E.g.: BIGM A5_D_3, PK001, DL002 - LATEST_i: 00:12:00 (00:07:00+00:05:00)
+        #                                   TIME_i_j: 00:02:17
+        #                                  SERVICE_i: 00:03:00
+        #                                 EARLIEST_j: 00:19:50
+        #                                       BIGM:-00:02:33
+        # Earliest in J combined with latest in I
+        # 19:50(j) >= 12:00(i) + 03:00(service i) + 02:17(time i->j) - (-02:33(M))
+        # print("BIGM %s, %s, %s - LATEST_i: %s (%s+%s) TIME_i_j: %s SERVICE_i: %s EARLIEST_j: %s BIGM: %s" % (k, i, j, latest_i, earliest_i, pk_delay_i, t_i_j, service_i, earliest_j, big_m))
+        # print("BIGM %s, %s, %s - LATEST_i: %s (%s+%s) TIME_i_j: %s SERVICE_i: %s EARLIEST_j: %s BIGM: %s" % (k, i, j, Node.get_formatted_time_h(latest_i),Node.get_formatted_time_h(earliest_i), Node.get_formatted_duration_h(pk_delay_i), Node.get_formatted_duration_h(t_i_j), Node.get_formatted_duration_h(service_i), Node.get_formatted_time_h(earliest_j), Node.get_formatted_duration_h(big_m)))
+        return max(0, big_m)
+
+    def get_big_w(self, c, k, i):
+        capacity_k = self.vehicles_dic[k].get_capacity()[c]
+        load_i = self.nodes_dic[i].get_demand()[c]
+        return min(2 * capacity_k, 2 * capacity_k + load_i)
+
     def calculate_big_m(self):
         BIGM = dict()
         for k, i, j in self.valid_rides:
@@ -256,22 +286,25 @@ class SARP_PL(OptMethod):
             #                                       BIGM:-00:02:33
             # Earliest in J combined with latest in I
             # 19:50(j) >= 12:00(i) + 03:00(service i) + 02:17(time i->j) - (-02:33(M))
-            #print("BIGM %s, %s, %s - LATEST_i: %s (%s+%s) TIME_i_j: %s SERVICE_i: %s EARLIEST_j: %s BIGM: %s" % (k, i, j, latest_i, earliest_i, pk_delay_i, t_i_j, service_i, earliest_j, big_m))
-            #print("BIGM %s, %s, %s - LATEST_i: %s (%s+%s) TIME_i_j: %s SERVICE_i: %s EARLIEST_j: %s BIGM: %s" % (k, i, j, Node.get_formatted_time_h(latest_i),Node.get_formatted_time_h(earliest_i), Node.get_formatted_duration_h(pk_delay_i), Node.get_formatted_duration_h(t_i_j), Node.get_formatted_duration_h(service_i), Node.get_formatted_time_h(earliest_j), Node.get_formatted_duration_h(big_m)))
+            # print("BIGM %s, %s, %s - LATEST_i: %s (%s+%s) TIME_i_j: %s SERVICE_i: %s EARLIEST_j: %s BIGM: %s" % (k, i, j, latest_i, earliest_i, pk_delay_i, t_i_j, service_i, earliest_j, big_m))
+            # print("BIGM %s, %s, %s - LATEST_i: %s (%s+%s) TIME_i_j: %s SERVICE_i: %s EARLIEST_j: %s BIGM: %s" % (k, i, j, Node.get_formatted_time_h(latest_i),Node.get_formatted_time_h(earliest_i), Node.get_formatted_duration_h(pk_delay_i), Node.get_formatted_duration_h(t_i_j), Node.get_formatted_duration_h(service_i), Node.get_formatted_time_h(earliest_j), Node.get_formatted_duration_h(big_m)))
             BIGM[(k, i, j)] = max(0, big_m)
-        logger.debug("############################################ BIG M ##########################################")
+        logger.debug(
+            "############################################ BIG M ##########################################")
         logger.debug(pprint.pformat(BIGM))
 
         return BIGM
 
     def calculate_big_w(self):
         BIGW = dict()
-        logger.debug("################################### BIGW #########################################")
+        logger.debug(
+            "################################### BIGW #########################################")
         for c, k, i in self.valid_loads:
             capacity_k = self.vehicles_dic[k].get_capacity()[c]
             load_i = self.nodes_dic[i].get_demand()[c]
             BIGW[(c, k, i)] = min(2 * capacity_k, 2 * capacity_k + load_i)
-            logger.debug("# c: %s # k: %s # i: %s # 2Q: %s # 2Q - load_i: %s", c, k, i, 2 * capacity_k, 2 * capacity_k + load_i)
+            logger.debug("# c: %s # k: %s # i: %s # 2Q: %s # 2Q - load_i: %s",
+                         c, k, i, 2 * capacity_k, 2 * capacity_k + load_i)
         return BIGW
 
     ##########################################################################
@@ -300,6 +333,7 @@ class SARP_PL(OptMethod):
             logger.debug(pprint.pformat([(i, j, mode)
                                          for i, j, mode in self.arcs]))
 
+            print("Creating valid rides (k, i, j)...")
             # Create valid rides
             for k in self.vehicles:
                 k_id = self.vehicles_dic[k].get_pos().get_id()
@@ -347,6 +381,7 @@ class SARP_PL(OptMethod):
             # Vehicle k can fully attend demand in pk node i
             valid_visits_pk = set()
 
+            print("Creating valid visits (k, i)...")
             # Create valid rides
             for k, i, j in self.valid_rides:
                 valid_visits.add((k, i))
@@ -379,6 +414,7 @@ class SARP_PL(OptMethod):
                                   vtype=GRB.INTEGER,
                                   name="u")
 
+            print("Creating valid loads (c, k, i)...")
             # Create valid load variables (c,k,i)
             self.valid_loads = []
             for k in self.vehicles:
@@ -387,12 +423,15 @@ class SARP_PL(OptMethod):
                         for c in self.lockers_v[k]:
                             self.valid_loads.append((c, k, i))
 
+            print("Calculating BIGM dictionary...")
             # Define big M
-            BIGM = self.calculate_big_m()
+            #BIGM = self.calculate_big_m()
 
+            print("Calculating BIGW dictionary...")
             # Define big W
-            BIGW = self.calculate_big_w()
+            #BIGW = self.calculate_big_w()
 
+            print("Setting constraints...")
             logger.debug(
                 "############################# VALID LOADS ##########################")
             logger.debug(pprint.pformat(valid_visits))
@@ -408,80 +447,48 @@ class SARP_PL(OptMethod):
                                  name="r")
 
             #### ROUTING CONSTRAINTS ##########################################
-
+            print("    # MAX_1_OUT")
             # (ONLY_PK) = Max. one outbound arc in pickup nodes
             m.addConstrs((ride.sum('*', i, '*') <= 1
                           for i in self.pd_nodes), "MAX_1_OUT")
 
+            print("    # ALL_REQ")
+            # (ALL_REQ) = All requests are attended
+            m.addConstrs((ride.sum('*', i, '*') == 1
+                          for i in self.pk_points), "ALL_REQ")
+
+            print("    # ONLY_1_IN")
             # (ONLY_DL) = There is only one vehicle arriving at a pk/dl point
             m.addConstrs((ride.sum('*', '*', j) <= 1
                           for j in self.pd_nodes), "ONLY_1_IN")
 
+            print("    # BEGIN")
             # (BEGIN) = Every vehicle leaves the start depot
             m.addConstrs((ride.sum(k, self.starting_locations, '*') <= 1
                           for k in self.vehicles), "BEGIN")
 
-            # (IN_OUT) = self.vehicles enter and leave pk/dl nodes
-            for i, j in self.pd_pairs.items():
-                for k in self.vehicles:
-                    # Valid inbound rides of vehicle k to node i
-                    a = [ride[k, i, to_node]
-                         for to_node in self.nodes
-                         if (k, i, to_node) in self.valid_rides]
+            print("    # IF_PK_DL1 / IF_PK_DL2")
+            m.addConstrs((ride.sum(k, i, '*') <= selected_req[i]
+                          for i, j in self.pd_pairs.items()
+                          for k in self.vehicles), name="IF_PK_DL1")
 
-                    if len(a) != 0:
-                        m.addConstr(
-                            quicksum(a) <= selected_req[i],  "IF_PK_DL1[%s,%s]" % (i, k))
+            m.addConstrs((ride.sum(k, '*', j) <= selected_req[i]
+                          for i, j in self.pd_pairs.items()
+                          for k in self.vehicles),  name="IF_PK_DL2")
 
-                    # Valid inbound rides of vehicle k to node i
-                    b = [ride[k, from_node, j]
-                         for from_node in self.nodes
-                         if (k, from_node, j) in self.valid_rides]
-
-                    if len(b) != 0:
-                        m.addConstr(
-                            quicksum(b) <= selected_req[i],  "IF_PK_DL2[%s,%s]" % (k, j))
-
+            print("    # FLOW_VEH_PK")
             # (IN_OUT_PK) = self.vehicles enter and leave pk/dl nodes
-            for k in self.vehicles:
-                for i in self.pk_points:
-                    # Valid inbound rides of vehicle k to node i
-                    a = [ride[k, from_node, i]
-                         for from_node in self.nodes
-                         if (k, from_node, i) in self.valid_rides]
+            m.addConstrs((ride.sum(k, '*', i) == ride.sum(k, i, '*')
+                          for i in self.pk_points
+                          for k in self.vehicles), name="FLOW_VEH_PK")
 
-                    # Valid outbound rides of vehicle k from node i
-                    b = [ride[k, i, to_node]
-                         for to_node in self.nodes
-                         if (k, i, to_node) in self.valid_rides]
-
-                    # Check if there are enough variables to build expression
-                    if len(a) == 0 and len(b) == 0:
-                        continue
-
-                    m.addConstr(quicksum(a) == quicksum(b),
-                                "FLOW_VEH_PK[%s,%s]" % (k, i))
-
+            print("    # FLOW_VEH_DL")
             # (IN_OUT) = self.vehicles enter and leave pk/dl nodes
-            for k in self.vehicles:
-                for i in self.dl_points:
-                    # Valid inbound rides of vehicle k to node i
-                    a = [ride[k, from_node, i]
-                         for from_node in self.nodes
-                         if (k, from_node, i) in self.valid_rides]
+            m.addConstrs((ride.sum(k, '*', i) >= ride.sum(k, i, '*')
+                          for i in self.dl_points
+                          for k in self.vehicles), name="FLOW_VEH_DL")
 
-                    # Valid outbound rides of vehicle k from node i
-                    b = [ride[k, i, to_node]
-                         for to_node in self.nodes
-                         if (k, i, to_node) in self.valid_rides]
-
-                    # Check if there are enough variables to build expression
-                    if len(a) == 0 and len(b) == 0:
-                        continue
-
-                    m.addConstr(quicksum(a) >= quicksum(b),
-                                "FLOW_VEH_DL[%s,%s]" % (k, i))
-
+            print("    # ARRI_T")
             # (ARRI_T) = Arrival time at location j (departing from i) >=
             #            arrival time in i +
             #            service time in i +
@@ -491,12 +498,13 @@ class SARP_PL(OptMethod):
                           arrival_t[k, i] +
                           self.nodes_dic[i].get_service_t() +
                           self.times[i, j, self.vehicles_dic[k].get_type()] -
-                          BIGM[(k, i, j)] * (1 - ride[k, i, j])
+                          self.get_big_m(k, i, j) * (1 - ride[k, i, j])
                           for k, i, j in self.valid_rides
                           if i not in self.starting_locations), "ARRI_T")
 
             #### RIDE TIME CONSTRAINTS ########################################
 
+            print("    # RIDE_1")
             # (RIDE_1) = Ride time from i to j >=
             #            time_from_i_to_j
             m.addConstrs((travel_t[k, i] >= self.times[i, j, self.vehicles_dic[k].get_type()]
@@ -504,6 +512,7 @@ class SARP_PL(OptMethod):
                           for i, j in self.pd_tuples
                           if (k, i, j) in self.valid_rides), "RIDE_1")
 
+            print("    # RIDE_2")
             # (RIDE_2) = Ride time from i to j <=
             #            time_from_i_to_j + MAX_LATENESS
             m.addConstrs((travel_t[k, i] <=
@@ -513,6 +522,7 @@ class SARP_PL(OptMethod):
                           for i, j in self.pd_tuples
                           if (k, i, j) in self.valid_rides), "RIDE_2")
 
+            print("    # RIDE_3")
             # (RIDE_3) = Ride time from i to j is >=
             # arrival_time_j - (arrival_time_i + self.service_time_i + self.service_time_j)
             m.addConstrs((travel_t[k, i] ==
@@ -522,14 +532,30 @@ class SARP_PL(OptMethod):
                           for k in self.vehicles
                           for i, j in self.pd_tuples
                           if (k, i, j) in self.valid_rides), "RIDE_3")
+            
+            """for k in self.vehicles:
+                for i, j in self.pd_tuples:
+                    if (k, i, j) in self.valid_rides:
+                        m.addConstr((travel_t[k, i] ==
+                          arrival_t[k, j] -
+                          (arrival_t[k, i] +
+                           self.nodes_dic[i].get_service_t())), "RIDE_3[%s,%s,%s]" % (k, i, j))
+                        
+                        m.addConstr((travel_t[k, i] <=
+                          self.times[i, j, self.vehicles_dic[k].get_type(
+                          )] + self.max_delivery_delay[i]), "RIDE_2[%s,%s,%s]" % (k, i, j))
+
+                        m.addConstr((travel_t[k, i] >= self.times[i, j, self.vehicles_dic[k].get_type()]), "RIDE_1[%s,%s,%s]" % (k, i, j))"""
 
             ### TIME WINDOW CONSTRAINTS #######################################
+            print("    # EARL")
             #>>>>>> TIME WINDOW FOR PICKUP
             # (EARL) = Arrival time in i >=
             #          earliest arrival time in i
             m.addConstrs((arrival_t[k, i] >= self.earliest_latest[(self.vehicles_dic[k].get_type(), i)]["earliest"]
                           for (k, i) in valid_visits_pk), "EARL")
 
+            print("    # LATE")
             # (LATE) = Arrival time in i <=
             #          earliest arrival time + MAX_PICKUP_LATENESS
             m.addConstrs((arrival_t[k, i] <= self.earliest_latest[(self.vehicles_dic[k].get_type(), i)]["latest"]
@@ -547,6 +573,7 @@ class SARP_PL(OptMethod):
             """
             #### LOADING CONSTRAINTS ##########################################
 
+            print("    # LOAD")
             # (LOAD) = Guarantee load flow
             #          Load of compartment c of vehicle k in node j >=
             #          Load of compartment c of vehicle k in node i +
@@ -554,24 +581,26 @@ class SARP_PL(OptMethod):
             #          IF there is a ride of vehicle k from i to j
             m.addConstrs((load[c, k, j] >=
                           (load[c, k, i] + self.pk_dl[j, c]) -
-                          BIGW[c, k, j] * (1 - ride[k, i, j])
+                          self.get_big_w(c, k, j) * (1 - ride[k, i, j])
                           for k, i, j in self.valid_rides
                           for c in self.lockers_v[k]
                           if (c, k, i) in self.valid_loads
                           and (c, k, j) in self.valid_loads), "LOAD")
 
+            print("    # LOAD_END_DL")
             for c, v, dl in self.valid_loads:
                 if dl in self.dl_points:
-                    a = quicksum(ride[k, i, j] for k, i,
-                                 j in self.valid_rides if k == v and i == dl)
+                    a = quicksum(ride[v, dl, j] for j in self.pd_nodes if (v,dl,j) in self.valid_rides)
                     m.addConstr((load[c, v, dl] <= (
                         self.capacity_vehicle[v, c] + self.pk_dl[dl, c]) * a), "LOAD_END_DL[%s,%s,%s]" % (c, v, dl))
 
+            print("    # LOAD_MIN")
             # (LOAD_MIN) = Load of vehicle k in node i >=
             #              MAX(0, PK/DL demand in i)
             m.addConstrs((load[c, k, i] >= max(0, self.pk_dl[i, c])
                           for c, k, i in self.valid_loads), "LOAD_MIN")
 
+            print("    # LOAD_MAX")
             # (LOAD_MAX) = Load of compartment c of vehicle k in node i <=
             #              MIN(MAX_LOAD, MAX_LOAD - DL demand in i)
             #              Every time a DL node is visited, it is KNOWN
@@ -592,13 +621,15 @@ class SARP_PL(OptMethod):
             # Vehicle AV2 cannot visit node DL2
 
             #### FEASIBILITY CONSTRAINTS ######################################
-
+            print("    # LOAD_0")
             m.addConstrs((load[c, k, i] >= 0
                           for c, k, i in self.valid_loads),  "LOAD_0")
 
+            print("    # ARRI_0")
             m.addConstrs((arrival_t[k, i] >= 0
                           for k, i in arrival_t), "ARRI_0")
 
+            print("    # ARRI_AT_ORIGIN")
             # Guarantees a vehicle will be available only at an specified time
             # Some vehicles are discarded because they cannot access any node
             # (not a valid visit)
@@ -613,53 +644,32 @@ class SARP_PL(OptMethod):
 
             start_end_nodes = list(self.starting_locations)
 
+            print("    # LOAD_DEPOT_0")
             m.addConstrs((load[c, k, i] == 0
                           for c, k, i in self.valid_loads
                           if i in start_end_nodes), "LOAD_DEPOT_0")
 
             #### OPTIMIZE MODEL ###############################################
+            print("Setting fares of lockers...")
             fare_locker_dis = self.DAO.get_fare_locker_dis()
             fare_locker = self.DAO.get_fare_locker()
-            logger.debug(
-                "############################# VALID LOADS ##########################")
-            logger.debug(pprint.pformat(valid_visits))
-            logger.debug(
-                "########## Fare locker distance ##########################################")
-            logger.debug(pprint.pformat(fare_locker_dis))
-            logger.debug(
-                "########## Fare locker ###################################################")
-            logger.debug(pprint.pformat(fare_locker))
-            logger.debug(
-                "########## PK POINTS #####################################################")
-            logger.debug(pprint.pformat(self.pk_points))
-            logger.debug(
-                "########################## PROFITS #################################")
-            for k, i, j in self.valid_rides:
-                if i in self.pk_points:
-                    if (k, i, self.pd_pairs[i]) in self.valid_rides:
-                        logger.debug("###(%s) %s -> %s:",
-                                     k,
-                                     i,
-                                     j)
-                        for c, d in self.nodes_dic[i].get_demand_short().items():
-                            logger.debug("      (%s=%s) FARES: [$%.2f, $%.5f] DIST: %ss PROFIT: $%.2f",
-                                         c,
-                                         d,
-                                         fare_locker[c],
-                                         fare_locker_dis[c],
-                                         self.cost_in_s[i,
-                                                        self.pd_pairs[i],
-                                                        self.vehicles_dic[k].get_type()],
-                                         d * (fare_locker[c] + fare_locker_dis[c] * self.cost_in_s[i, j, self.vehicles_dic[k].get_type()]))
 
+            print("Setting Objective function...")
             # OBJECTIVE FUNCTION 1 - INCREASE PROFIT
             # B: fare_locker[c] = fixed fare to deliver commodity c
             # Y: fare_locker_km[c] = variable fare (according to distance)
             #                        to deliver commodity c
             # C_ij: cost_in_s[i,j] = travel time(s) to go from i to j
             # Function = (B + Y*C_kij)*X_kij
-            m.setObjective(
-                quicksum(d * (fare_locker[c]
+            
+            mode_info = GenTestCase.v_info_dual["MODE_INFO"]
+            print("COST_PER_S", self.COST_PER_S)
+            m.setObjective(-quicksum(mode_info[self.vehicles_dic[k].get_type()]["fixed_cost"]
+                             * ride[k, self.vehicles_dic[k].get_pos().get_id(), j]
+                         for k in self.vehicles_dic
+                         for j in self.nodes
+                         if (k, self.vehicles_dic[k].get_pos().get_id(), j) in self.valid_rides)
+                + quicksum(d * (fare_locker[c]
                               + fare_locker_dis[c]
                               * self.cost_in_s[i, j, self.vehicles_dic[k].get_type()])
                          * ride[k, i, j]
@@ -667,11 +677,11 @@ class SARP_PL(OptMethod):
                          for i, j in self.pd_pairs.items()
                          if (k, i) in valid_visits and (k, j) in valid_visits
                          for c, d in self.nodes_dic[i].get_demand_short().items())
-                - self.COST_PER_S
-                * quicksum(self.cost_in_s[i, j, self.vehicles_dic[k].get_type()]
+                + quicksum(-mode_info[self.vehicles_dic[k].get_type()]["var_cost"]
+                           *self.cost_in_s[i, j, self.vehicles_dic[k].get_type()]
                            * ride[k, i, j]
                            for k, i, j in self.valid_rides),
-                GRB.MAXIMIZE)
+                GRB.MINIMIZE)
 
             logger.debug(
                 "########################## COSTS #################################")
@@ -692,7 +702,9 @@ class SARP_PL(OptMethod):
             # time spent to go travel from i to j
 
             # Setup time limit
-            m.Params.timeLimit = self.TIME_LIMIT
+            m.Params.timeLimit=self.TIME_LIMIT
+
+            print("Optimizing...")
             # Optimize model
             m.optimize()
 
@@ -700,7 +712,7 @@ class SARP_PL(OptMethod):
             # m.update()
             m.write("debug.lp")
             # Store route per vehicle
-            vehicles_route = {}
+            vehicles_route={}
 
             ###################################################################
 
@@ -709,7 +721,7 @@ class SARP_PL(OptMethod):
             # BEST PRACTICES
             # http://www.gurobi.com/pdfs/user-events/2016-frankfurt/Best-Practices.pdf
             # http://www.dcc.fc.up.pt/~jpp/seminars/azores/gurobi-intro.pdf
-            solver_sol = {
+            solver_sol={
                 "gap": m.MIPGap,
                 "num_vars": m.NumVars,
                 "num_constrs": m.NumConstrs,
@@ -766,7 +778,7 @@ class SARP_PL(OptMethod):
                                        solver_sol
                                        )
                 # Return answer
-                self.response = darp_answer
+                self.response=darp_answer
 
                 # exit(0)
 
@@ -846,6 +858,7 @@ class SARP_PL(OptMethod):
 
         # Reset indices of nodes
         Node.reset_nodes_ids()
+        Vehicle.reset_vehicles_ids()
 
     ##########################################################################
     ##########################################################################

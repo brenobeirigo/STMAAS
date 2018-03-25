@@ -9,11 +9,16 @@ import logging
 # Create Logger
 # https://www.blog.pythonlibrary.org/2012/08/02/python-101-an-intro-to-logging/
 logger = logging.getLogger('main')
-hdlr = logging.FileHandler('output.log', mode='w')
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-hdlr.setFormatter(formatter)
-logger.addHandler(hdlr)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
+
+
+def log(logger_obj, file, m):
+    hdlr = logging.FileHandler(file, mode=m)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    hdlr.setFormatter(formatter)
+    logger_obj.addHandler(hdlr)
+
 
 # SERVICE COSTS
 cost_per_s = 0.005  # $/s
@@ -24,6 +29,8 @@ instance_path_request = "instances/hybrid/requests"
 instance_path_network = "instances/hybrid/networks"
 result_path_json = "instances/json/"
 all_result_path = "results.csv"
+logs_path = "solution_logs/"
+
 gen_test_cases = True
 # INPUT PARAMETERS
 # PARAMETERS
@@ -36,13 +43,6 @@ json_result_path = "D:/SERVERS/xampp/htdocs/requestGen/jsonResponse/dual/"
 
 # Fare, Fare per distance and category of the locker
 lockers_info_path = "data/config/config_lockers.csv"
-
-
-# Generate test cases?
-if gen_test_cases:
-    GenTestCase.genAllTestCases(instance_path_vehicle,
-                                instance_path_request,
-                                instance_path_network)
 
 
 # LABELS
@@ -86,8 +86,11 @@ def get_tested_cases(path):
                 # For each data row
                 for row in reader:
                     # Get instance identity
-                    splitted = row[0:11]
-                    tested_cases.add("_".join(splitted))
+                    splitted = row[0:13]
+                    test_case_name = "_".join(splitted)
+                    tested_cases.add(test_case_name)
+
+            pprint.pprint(tested_cases)
             return tested_cases
 
         except IOError as e:
@@ -96,9 +99,11 @@ def get_tested_cases(path):
             with open(all_result_path, 'w') as file:
                 file.write(",".join(labels))
 
+
 ##############################################################################
 ##### Loop all instances #####################################################
 ##############################################################################
+
 
 
 # Counter of instances tested
@@ -109,19 +114,36 @@ GenTestCase.gen_network_tuples()
 GenTestCase.gen_vehicles_tuples()
 GenTestCase.gen_requests_tuples()
 
+
+# Generate test cases?
+if gen_test_cases:
+    GenTestCase.genAllTestCases(instance_path_vehicle,
+                                instance_path_request,
+                                instance_path_network)
+
+
 # Get all tested cases to avoid unecessary work
 tested_cases = get_tested_cases(all_result_path)
 
 for path_instance_n in GenTestCase.network_tuples:
     folder_v_nw = instance_path_vehicle+"/"+path_instance_n
     folder_r_nw = instance_path_request+"/"+path_instance_n
-    
+
     # Vary the vehicles attributes
     for path_instance_v in GenTestCase.vehicle_tuples:
         # Vary the requests attributes
         for path_instance_r in GenTestCase.request_tuples:
+            n_veh = path_instance_v.split("_")[0]
+            n_req = path_instance_r.split("_")[0]
+            # There must have at least one vehicle per request
+            if n_veh != n_req:
+                continue
+
             cont += 1
-            instance_id = path_instance_n+"_V"+path_instance_v+"_R"+path_instance_r
+            instance_id = path_instance_n + "_" + path_instance_v + "_" + path_instance_r
+
+            # Log instance data
+            log(logger, logs_path + instance_id+".log", 'w')
 
             # Only not tested instances are saved
             if instance_id in tested_cases:
@@ -161,17 +183,21 @@ for path_instance_n in GenTestCase.network_tuples:
 
             response.print_requests_info()
 
-            jsonResponse = darp2.get_response().get_json()
-            print(labels)
+            print("RUNTIME:", response.get_solver_sol()["runtime"])
+
+            # jsonResponse = darp2.get_response().get_json()
+
+            # print(labels)
+
             n_data = str(path_instance_n).split("_")
             v_data = str(path_instance_v).split("_")
             r_data = str(path_instance_r).split("_")
 
             print("PATH INSTANCE", path_instance_r, path_instance_v)
             line = "{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13:.6f},{14},{15:.6f},{16:.6f},{17:.6f},{18:.6f},{19:.6f},{20},{21},{22:.6f},{23:.6f},{24},{25},{26},{27:.6f},{28},{29},{30},{31}".format(
-                n_data[0],n_data[1],n_data[2],n_data[3],n_data[4],
-                v_data[0],v_data[1],
-                r_data[0],r_data[1], r_data[2], r_data[3], r_data[4], r_data[5],
+                n_data[0], n_data[1], n_data[2], n_data[3], n_data[4],
+                v_data[0], v_data[1],
+                r_data[0], r_data[1], r_data[2], r_data[3], r_data[4], r_data[5],
                 response.get_overall_occupancy_v(),
                 response.get_n_vehicles(),
                 round(float(response.get_profit()), 2),
@@ -192,7 +218,7 @@ for path_instance_n in GenTestCase.network_tuples:
                     json_file_name),
                 instance_path_request + path_instance_r+".csv",
                 instance_path_vehicle + path_instance_v+".csv",
-                )
+            )
 
             print(line)
 

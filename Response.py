@@ -133,12 +133,17 @@ class Response(object):
         # Calculate overall detour discount
         self.calculate_overall_detour_discount()
 
+        mix = defaultdict(int)
+        mix_v = defaultdict(set)
         # Print requests ordered by pk time
         for r in self.attended_requests.values():
 
             #Get type of vehicle that attended the request
             type_v = self.DAO.get_vehicle_dic()[r.get_vehicle_scheduled_id()].get_type()
-
+            mix[type_v] = mix[type_v] + 1
+            mix_v[self.DAO.get_vehicle_dic()[r.get_vehicle_scheduled_id()].get_type()].add(r.get_vehicle_scheduled_id())
+            
+            
             print("### %r ### (RE: %r -> PK: %r -> DL: %r) ETA: %r || TRAVEL TIME: %r || DELAY: %r || FARE: $%.2f || DISCOUNT: $%.2f || VEHICLE: %r" %
                   (r.get_id(),
                    Node.get_formatted_time(r.get_revealing_tstamp()),
@@ -150,17 +155,42 @@ class Response(object):
                    r.get_fare(mode=type_v),
                    self.DAO.get_discount_passenger() * r.get_detour_ratio(),
                    r.get_vehicle_scheduled_id()))
+
+            logger.info("### %r ### (RE: %r -> PK: %r -> DL: %r) ETA: %r || TRAVEL TIME: %r || DELAY: %r || FARE: $%.2f || DISCOUNT: $%.2f || VEHICLE: %r" ,
+                  r.get_id(),
+                   Node.get_formatted_time(r.get_revealing_tstamp()),
+                   Node.get_formatted_time_h(r.get_pk_time()),
+                   Node.get_formatted_time_h(r.get_dl_time()),
+                   Node.get_formatted_duration_h(r.get_eta()),
+                   Node.get_formatted_duration_h(r.get_distance(self.DAO)[type_v]),
+                   Node.get_formatted_duration_h(r.get_travel_delay(self.DAO)),
+                   r.get_fare(mode=type_v),
+                   self.DAO.get_discount_passenger() * r.get_detour_ratio(),
+                   r.get_vehicle_scheduled_id())
         
         print(self.route_v)
+        logger.info(self.route_v)
         print("-------------------------------------------------------------------------------------------------------------------------------------------------")
-        print("OVERALL OCCUPANCY: %.2f || OPERATING VEHICLES: %d || PROFIT: %.2f =  %.2f (REQUESTS REVENUE) -  %.2f (OPERATIONAL COSTS) - %.2f (DETOUR DISCOUNT)" %
+        print("OVERALL OCCUPANCY: %.2f || OPERATING VEHICLES: %d (%s) || PROFIT: %.2f =  %.2f (REQUESTS REVENUE) -  %.2f (OPERATIONAL COSTS) - %.2f (DETOUR DISCOUNT)" %
               (self.overall_occupancy_v,
                self.n_vehicles,
+               "/".join([k + " = " + str(len(v)) for k,v in mix_v.items()]),
                round(float(self.profit), 2),
                self.profit_reqs,
                self.overall_operational_cost,
                self.overall_detour_discount
                ))
+        print("--------------------------------------------------------------------------------------------------------------------------------------------------")
+        logger.info("-------------------------------------------------------------------------------------------------------------------------------------------------")
+        logger.info("OVERALL OCCUPANCY: %.2f || OPERATING VEHICLES: %d || PROFIT: %.2f =  %.2f (REQUESTS REVENUE) -  %.2f (OPERATIONAL COSTS) - %.2f (DETOUR DISCOUNT)",
+              self.overall_occupancy_v,
+               self.n_vehicles,
+               round(float(self.profit), 2),
+               self.profit_reqs,
+               self.overall_operational_cost,
+               self.overall_detour_discount
+               )
+        logger.info("--------------------------------------------------------------------------------------------------------------------------------------------------")
         print("--------------------------------------------------------------------------------------------------------------------------------------------------")
 
     def get_json(self):

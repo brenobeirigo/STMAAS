@@ -6,9 +6,10 @@ class Compartment:
     sep1 = "/"
     sep2 = "="
 
-    def __init__(self, label, amount):
+    def __init__(self, label, amount, cost=0):
         self.label = label
         self.amount = int(amount)
+        self.cost = 0
 
     def __str__(self):
         return self.label + Compartment.sep2 + str(self.amount)
