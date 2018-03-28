@@ -37,6 +37,13 @@ class Node(object):
             return "--:--:--"
         else:
             return datetime.fromtimestamp(int(time), timezone.utc).strftime('%H:%M:%S')
+    
+    @staticmethod
+    def get_formatted_duration_m(time):
+        if time == 0:
+            return "--:--"
+        else:
+            return datetime.fromtimestamp(int(time), timezone.utc).strftime('%M:%S')
 
     def __init__(self, type, id, x, y, demand, request_id, network_node_id=None):
         self.request_id = request_id

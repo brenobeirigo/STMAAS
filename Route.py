@@ -46,16 +46,14 @@ class Route:
         # Print the ordered list of nodes
         origin_v = self.start_pos.get_id()
         vehicle = self.DAO.get_vehicles_nodes()[origin_v]
-        arr_dic = vehicle.get_path_arrival()
-        ordered_arr = list(arr_dic.keys())
-        ordered_arr.sort()
-        
-        for arr in ordered_arr:
-            self.ordered_list.append(arr_dic[arr].get_id())
+        self.ordered_list = list(vehicle.get_path().keys())
 
-        for i in range(0,len(ordered_arr)-1):
-            origin = arr_dic[ordered_arr[i]]
-            destination = arr_dic[ordered_arr[i+1]]
+        print("Ordered List")
+        pprint.pprint(self.ordered_list)
+
+        for i in range(0,len(self.ordered_list)-1):
+            origin = vehicle.get_path()[self.ordered_list[i]]
+            destination = vehicle.get_path()[self.ordered_list[i+1]]
 
             # Add the destinations request to request list. The requests list
             # contains all requests attended by vehicle performing the route

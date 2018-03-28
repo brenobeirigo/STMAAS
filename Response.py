@@ -23,7 +23,6 @@ class Response(object):
                  travel_t,
                  load,
                  arrival_t,
-                 selected_req,
                  DAO,
                  solver_sol):
         self.vehicles = vehicles
@@ -35,7 +34,6 @@ class Response(object):
         self.vars = vars
         self.rides = rides
         self.travel_t = travel_t
-        self.selected_req = selected_req
         self.load = load
         self.arrival_t = {(k,i):arrival_t[(k,i)] + Vehicle.start_revealing_tstamp for k,i in arrival_t}
         self.path = None
@@ -45,14 +43,13 @@ class Response(object):
         self.all_requests = set([r.get_id()
                                  for r in self.requests_dic.values()])
 
+        self.attended_requests = dict()
+        
         # Check rides[k, i, j] and create vehicles and nodes
         self.create_path()
 
-        self.attended_requests = {pk_node.get_request_id():self.requests_dic[pk_node.get_id()] 
-                                  for pk_node in self.DAO.get_nodes_dic().values()
-                                  if pk_node.get_id() in self.selected_req}
-
         
+
         self.denied_requests = self.all_requests - self.attended_requests.keys()
 
         self.calculate_total_profit()
@@ -64,6 +61,9 @@ class Response(object):
             self.overall_detour_discount += self.DAO.get_discount_passenger() * \
                 r.get_detour_ratio()
 
+    def get_mix(self):
+        return self.mix
+
     # Creates a response for a method, placing the step-by-step information
     # in each node.
     def create_path(self):
@@ -74,8 +74,8 @@ class Response(object):
         for k in self.DAO.get_vehicle_dic().keys():
             dic_order[k] = dict()
 
-        logger.info("SELECTED REQUESTS: %s", str(self.selected_req.keys()))
-
+        ordered_v_nodes = defaultdict(lambda: defaultdict(str))
+        nodes_vehicle = dict()
         for k, i, j in self.vars:
             
             # If there is a path from i to j by vehicle k
@@ -97,57 +97,82 @@ class Response(object):
             allowed to consider a constraint that is violated by at most
             1e-6 to still be satisfied.
             """
+            
             if self.rides[k, i, j] > 0.9:
-                
-                # Departure node
-                vehicle = vehicles_dic[k]
-                path = vehicle.get_path_arrival()
-
-                dep_node = self.DAO.get_nodes_dic()[i]
-                arr_node = self.DAO.get_nodes_dic()[j]
-
-
                 arr_i = self.arrival_t[k, i]
                 arr_j = self.arrival_t[k, j]
-                # print("--#####",k,i,j, self.rides[k, i, j], self.arrival_t[k, i],  arr_i, self.arrival_t[k, j],  arr_j)
-
-                if arr_i not in path:
-                    path[arr_i] = self.get_updated_node2(vehicle, dep_node)
-                    vehicle.add_node(path[arr_i])
+                ordered_v_nodes[k][i] = j
+            
+        
+        for k, from_to in ordered_v_nodes.items():
+            node_id = self.DAO.get_vehicle_dic()[k].get_pos().get_id()
+            ordered_list = list()
+            while True:
+                ordered_list.append(node_id)
+                next_id = from_to[node_id]
+                node_id = next_id
+                if node_id not in from_to.keys():
+                    ordered_list.append(node_id)
+                    break
+            nodes_vehicle[k] = ordered_list
                 
-                if arr_j not in path:
-                    path[arr_j] = self.get_updated_node2(vehicle, arr_node)
-                    vehicle.add_node(path[arr_j])
+                
+            
+        print("ORDERED")
+        pprint.pprint(ordered_v_nodes)
+        print("ORDERED 2")
+        pprint.pprint(nodes_vehicle)
+                
+        for k, route in nodes_vehicle.items():
+            vehicle = vehicles_dic[k]
+            path = vehicle.get_path()
+            
+            for i in route:
+                # Departure node
+                dep_node = self.DAO.get_nodes_dic()[i]
+                if isinstance(dep_node, NodePK):
+                    print("DURATION",k,i, "=", Node.get_formatted_duration_h(self.travel_t[k, i]))
+
+ 
+                print("--#####",k, i, self.arrival_t[k, i], Node.get_formatted_time_h(self.arrival_t[k, i]))
+
+                path[i] = self.get_updated_node2(vehicle, dep_node)
 
                 if isinstance(dep_node, NodePK):
-                    req = self.DAO.get_request_dic()[i]
-                    req.update_status(vehicle.get_id(), self.travel_t[k, i], arr_i)
+                    req = self.requests_dic[i]
+                    req.update_status(vehicle.get_id(), self.travel_t[k, i], self.arrival_t[k, i])
+                    self.attended_requests[i] = req
+        
+        logger.info("SELECTED REQUESTS: %s", str(self.attended_requests.keys()))
+        print("SELECTED REQUESTS: ", str(self.attended_requests.keys()))
 
     def calculate_total_profit(self):
         for r in self.attended_requests.values():
             print("R:", r, " --S:", r.get_vehicle_scheduled_id())
-            vehicle_mode = self.DAO.get_vehicle_dic()[r.get_vehicle_scheduled_id()].get_type()
-            self.profit_reqs += r.get_fare(mode=vehicle_mode)
+            if r.get_vehicle_scheduled_id() != None:
+                vehicle_mode = self.DAO.get_vehicle_dic()[r.get_vehicle_scheduled_id()].get_type()
+                self.profit_reqs += r.get_fare(mode=vehicle_mode)
 
     def print_requests_info(self):
         # Calculate overall detour discount
         self.calculate_overall_detour_discount()
 
-        mix = defaultdict(int)
-        mix_v = defaultdict(set)
+        self.mix = defaultdict(int)
+        self.mix_v = defaultdict(set)
         # Print requests ordered by pk time
         for r in self.attended_requests.values():
 
             #Get type of vehicle that attended the request
             type_v = self.DAO.get_vehicle_dic()[r.get_vehicle_scheduled_id()].get_type()
-            mix[type_v] = mix[type_v] + 1
-            mix_v[self.DAO.get_vehicle_dic()[r.get_vehicle_scheduled_id()].get_type()].add(r.get_vehicle_scheduled_id())
+            self.mix[type_v] = self.mix[type_v] + 1
+            self.mix_v[type_v].add(r.get_vehicle_scheduled_id())
             
-            
-            print("### %r ### (RE: %r -> PK: %r -> DL: %r) ETA: %r || TRAVEL TIME: %r || DELAY: %r || FARE: $%.2f || DISCOUNT: $%.2f || VEHICLE: %r" %
+            print("### %r ### (RE: %r -> PK (%s): %r -> DL (%s): %r) ETA: %r || TRAVEL TIME: %r || DELAY: %r || FARE: $%.2f || DISCOUNT: $%.2f || VEHICLE: %r" %
                   (r.get_id(),
                    Node.get_formatted_time(r.get_revealing_tstamp()),
+                   Node.get_formatted_duration_m(r.get_origin().get_service_t()),
                    Node.get_formatted_time_h(r.get_pk_time()),
+                   Node.get_formatted_duration_m(r.get_destination().get_service_t()),
                    Node.get_formatted_time_h(r.get_dl_time()),
                    Node.get_formatted_duration_h(r.get_eta()),
                    Node.get_formatted_duration_h(r.get_distance(self.DAO)[type_v]),
@@ -156,10 +181,12 @@ class Response(object):
                    self.DAO.get_discount_passenger() * r.get_detour_ratio(),
                    r.get_vehicle_scheduled_id()))
 
-            logger.info("### %r ### (RE: %r -> PK: %r -> DL: %r) ETA: %r || TRAVEL TIME: %r || DELAY: %r || FARE: $%.2f || DISCOUNT: $%.2f || VEHICLE: %r" ,
+            logger.info("### %r ### (RE: %r -> PK (%s): %r -> DL (%s): %r) ETA: %r || TRAVEL TIME: %r || DELAY: %r || FARE: $%.2f || DISCOUNT: $%.2f || VEHICLE: %r",
                   r.get_id(),
                    Node.get_formatted_time(r.get_revealing_tstamp()),
+                   Node.get_formatted_duration_m(r.get_origin().get_service_t()),
                    Node.get_formatted_time_h(r.get_pk_time()),
+                   Node.get_formatted_duration_m(r.get_destination().get_service_t()),
                    Node.get_formatted_time_h(r.get_dl_time()),
                    Node.get_formatted_duration_h(r.get_eta()),
                    Node.get_formatted_duration_h(r.get_distance(self.DAO)[type_v]),
@@ -168,30 +195,34 @@ class Response(object):
                    self.DAO.get_discount_passenger() * r.get_detour_ratio(),
                    r.get_vehicle_scheduled_id())
         
+        print({t_v:vehicles for t_v, vehicles in self.mix_v.items()})
+        self.mix_cost = {t_v:sum([self.DAO.get_vehicle_dic()[v].acquisition_cost for v in vehicles]) for t_v, vehicles in self.mix_v.items()}
+        print(self.mix_cost)
+
         print(self.route_v)
         logger.info(self.route_v)
-        print("-------------------------------------------------------------------------------------------------------------------------------------------------")
-        print("OVERALL OCCUPANCY: %.2f || OPERATING VEHICLES: %d (%s) || PROFIT: %.2f =  %.2f (REQUESTS REVENUE) -  %.2f (OPERATIONAL COSTS) - %.2f (DETOUR DISCOUNT)" %
+        print("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
+        print("OVERALL OCCUPANCY: %.2f || OPERATING VEHICLES: %d [%s] || OF: %.2f { %.2f (REQUESTS REVENUE) -  %.2f (OPERATIONAL COSTS) - [%s] (ACQUISITION) }" %
               (self.overall_occupancy_v,
                self.n_vehicles,
-               "/".join([k + " = " + str(len(v)) for k,v in mix_v.items()]),
+               " | ".join([k + " = " + str(len(v)) for k,v in self.mix_v.items()]),
                round(float(self.profit), 2),
                self.profit_reqs,
                self.overall_operational_cost,
-               self.overall_detour_discount
+               " | ".join([k + " = " + str("{0}".format(v)) for k,v in self.mix_cost.items()]),
                ))
-        print("--------------------------------------------------------------------------------------------------------------------------------------------------")
-        logger.info("-------------------------------------------------------------------------------------------------------------------------------------------------")
-        logger.info("OVERALL OCCUPANCY: %.2f || OPERATING VEHICLES: %d || PROFIT: %.2f =  %.2f (REQUESTS REVENUE) -  %.2f (OPERATIONAL COSTS) - %.2f (DETOUR DISCOUNT)",
+        print("------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
+        logger.info("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
+        logger.info("OVERALL OCCUPANCY: %.2f || OPERATING VEHICLES: %d [%s] || PROFIT: %.2f =  %.2f (REQUESTS REVENUE) -  %.2f (OPERATIONAL COSTS)",
               self.overall_occupancy_v,
                self.n_vehicles,
+               " | ".join([k + " = " + str(len(v)) for k,v in self.mix_v.items()]),
                round(float(self.profit), 2),
                self.profit_reqs,
-               self.overall_operational_cost,
-               self.overall_detour_discount
+               self.overall_operational_cost
                )
-        logger.info("--------------------------------------------------------------------------------------------------------------------------------------------------")
-        print("--------------------------------------------------------------------------------------------------------------------------------------------------")
+        logger.info("------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
+        print("-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
 
     def get_json(self):
         js = '{{"config":{{\
@@ -227,7 +258,7 @@ class Response(object):
                             }}\
                     }}\
                 }}'\
-        .format(self.DAO.get_cost_per_s(),
+        .format(-111111,
                 self.DAO.get_discount_passenger(),
                 ",".join(n.get_json() for n in self.DAO.get_nodes_dic().values()),
                 ",".join(r.get_json() for r in self.DAO.get_request_list()),
@@ -341,7 +372,7 @@ class Response(object):
     # Return a copy of the node with load and arrival values
     # updated. This way, every vehicle has a copy of the
     # departure and arrival nodes.
-    def get_updated_node2(self, vehicle, node):
+    def get_updated_node2(self, vehicle, node, id_next=None):
         node_copy = None
         # Depots don't need to be copied
         if not isinstance(node, NodeDepot):
@@ -355,4 +386,5 @@ class Response(object):
             node_copy.get_load()[c] = self.load[c,
                                                 vehicle.get_id(),
                                                 node_copy.get_id()]
+        node_copy.id_next = id_next
         return node_copy

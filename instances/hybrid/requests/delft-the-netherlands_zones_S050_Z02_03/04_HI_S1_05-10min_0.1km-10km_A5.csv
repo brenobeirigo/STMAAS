@@ -1,0 +1,3 @@
+revealing,pickup_x,pickup_y,dropoff_x,dropoff_y,order,pickup_lateness,delivery_lateness,pk_node_id,dl_node_id,sl_class,id
+2017-10-10 00:06,4.354448,52.001153,4.356781,52.003777,A=2,300,600,3377240348,4617340492,B,
+2017-10-10 00:13,4.367680,52.018286,4.370775,51.998610,A=4,300,600,44877395,2177111542,B,

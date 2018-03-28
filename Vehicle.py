@@ -7,8 +7,10 @@ from Leg import Leg
 from Route import Route
 import json
 import time
-
-class Vehicle(object):
+from collections import OrderedDict
+class Vehicle:
+    vehicle_modes = ["autonomous", "conventional", "dual"]
+    vehicle_modes_short = ["A", "C", "D"]
     start_revealing = '2017-10-10 00:00:00'
     start_revealing_t = datetime.strptime('2017-10-10 00:00:00', '%Y-%m-%d %H:%M:%S')
     start_revealing_tstamp = start_revealing_t.timestamp()
@@ -45,11 +47,16 @@ class Vehicle(object):
     def get_type(self):
         return self.type_vehicle
 
-    def __init__(self, type_vehicle, id, autonomy, pos, capacity, available_at):
+    def __init__(self, id, autonomy, pos, capacity, available_at, type_vehicle=None, acquisition_cost=0, operation_cost_s=0):
         self.type_vehicle = type_vehicle
         self.color = Vehicle.color[Vehicle.n_vehicles % 21]
         self.id = id
 
+        # Establish the costs
+        self.acquisition_cost = acquisition_cost
+        self.operation_cost_s = operation_cost_s
+
+        
         # Autonomy of vehicle
         self.autonomy = autonomy
 
@@ -70,15 +77,15 @@ class Vehicle(object):
         self.reset()
         Vehicle.n_vehicles += 1
 
+    def get_operational_cost(self):
+        return self.operational_cost
+        
     def get_color(self):
         return self.color
 
     
-    def get_path_arrival(self):
-        return self.path_arrival
-
     def reset(self):
-        self.path_arrival = dict()
+        
         # Average occupancy of vehicle's compartments in relation
         # to travel_time
         self.avg_occupancy_c = {}
@@ -86,7 +93,11 @@ class Vehicle(object):
         # compartments throughout the entire travel time
         self.overall_avg_occupancy = 0
         self.operational_cost = 0
-        self.path = dict()
+        # If requests origin == vehicle origin, departure time, there are two
+        # nodes (DP and PK) related to the same key (00:00), since vehicle does
+        # not need to travel to arrive in PK. Hence, the key 00:00 will carry a set
+        # of nodes to cover this special case.
+        self.path = OrderedDict()
         average_occupation = {
             k: 0 for k in self.capacity if self.capacity[k] != 0}
         self.route = None
@@ -99,14 +110,7 @@ class Vehicle(object):
             return False
         return True
 
-    # Create vehicles acording to specified type
-    @classmethod
-    def factory_vehicle(self, type_v, id, autonomy, pos, capacity, available_at, type_vehicle=None):
-        if type_v == 'DARP':
-            return Vehicle(type_vehicle, id, autonomy, pos, capacity)
-        elif type_v == 'SARP_PL':
-            return VehicleParcelLockers(type_vehicle, id, autonomy, pos, capacity, available_at)
-
+    
     # Return TRUE if vehicle can fully attend request
     def fit_demand(self, request):
         demand = request.get_demand_short()
@@ -193,11 +197,6 @@ class Vehicle(object):
             current_node = next_node
         return s
 
-
-class VehicleParcelLockers(Vehicle):
-    def __init(self, type_vehicle, id, autonomy, pos, capacity, available_at):
-        super().__init__(type_vehicle, id, autonomy, pos, capacity)
-
     def get_available_at(self):
         return self.available_at
     
@@ -210,8 +209,6 @@ class VehicleParcelLockers(Vehicle):
     # Calculate vehicle proportional occupancy of each compartment
     # by time ridden
     def calculate_vehicle_occupancy(self, DAO):
-
-        cost_per_s = DAO.get_cost_per_s()
 
         ############### VEHICLE ROUTE OCCUPANCY ####################
 
@@ -235,13 +232,13 @@ class VehicleParcelLockers(Vehicle):
                 origin, destination)].get_travel_t()
 
             # Operational cost of leg
-            leg_op_cost = cost_per_s * dist
+            leg_op_cost = self.operation_cost_s * dist
 
             # Add leg operational cost to the total cost
             self.operational_cost += leg_op_cost
 
             """print("&&&OC", origin, " -> ", destination, ":", Node.get_formatted_duration_h(dist),
-                  cost_per_s, leg_op_cost, self.operational_cost)"""
+                  self.operation_cost_s, leg_op_cost, self.operational_cost)"""
 
             origin_dest_delay = leg.get_invehicle_t()
 
@@ -344,10 +341,10 @@ class VehicleParcelLockers(Vehicle):
         s += "\nAVG. OCCUPANCY (COMPARTMENT): "
         for c in self.avg_occupancy_c:
             s += c + ":" + \
-                str("%.2f" %
+                str("%.4f" %
                     round(self.avg_occupancy_c[c] * 100, 2)) + "%" + " / "
         s += "\nOVERALL AVERAGE OCCUPANCY: " + \
-            str("%.2f" % round(self.overall_avg_occupancy * 100, 2)) + "%" + "\n"
+            str("%.4f" % round(self.overall_avg_occupancy * 100, 2)) + "%" + "\n"
         s += "OPERATIONAL COSTS:  ${0:<2} ".format(self.operational_cost)
 
         s += str(self.route)
@@ -371,7 +368,7 @@ class VehicleParcelLockers(Vehicle):
         # If vehicle is not used, its data is irrelevant and
         # therefore not shown
         if not self.is_used():
-            s = "->" + self.get_id() +'('+self.pos+')' + "-- STATUS: still"
+            s = "->" + self.get_id() +'('+str(self.pos)+')' + "-- STATUS: still"
             s += "->" + self.get_id() + "-- STATUS: still"
             s += "/".join(['{0:>3}={1:<2}'.format(k, v)
                            for k, v in self.capacity.items()])
@@ -393,10 +390,10 @@ class VehicleParcelLockers(Vehicle):
         s += "\nAVG. OCCUPANCY (COMPARTMENT): "
         for c in self.avg_occupancy_c:
             s += c + ":" + \
-                str("%.2f" %
+                str("%.4f" %
                     round(self.avg_occupancy_c[c] * 100, 2)) + "%" + " / "
         s += "\nOVERALL AVERAGE OCCUPANCY: " + \
-            str("%.2f" % round(self.overall_avg_occupancy * 100, 2)) + "%" + "\n"
+            str("%.4f" % round(self.overall_avg_occupancy * 100, 2)) + "%" + "\n"
         s += "OPERATIONAL COSTS:  ${0:.2f} ".format(self.operational_cost)
 
         """print("LOG LEGS")

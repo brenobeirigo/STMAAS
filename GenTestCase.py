@@ -10,48 +10,7 @@ from Network import *
 
 class GenTestCase:
     # Earliest time possible
-    start_revealing = '2017-10-10 00:00'
-    start_revealing_t = datetime.strptime('2017-10-10 00:00:00', '%Y-%m-%d %H:%M:%S')
-    start_revealing_tstamp = start_revealing_t.timestamp()
-
-    code_mode = {"A":"autonomous", "C":"conventional", "D":"dual"}
-    mode_code = {"autonomous":"A", "conventional":"C", "dual":"D"}
-
-    network_instances = OrderedDict({
-                        "REGION": ['Delft, The Netherlands'],
-                        "SUBNETWORK_TYPES": ["zones", "subnetworks"],
-                        "SPREAD": [0.1, 0.25, 0.50],
-                        "#ZONES": [1,2,4,8],
-                        "#TEST": 10,
-                        "SAVE_FIG": True,
-                        "SHOW_SEEDS": True
-                        }) #, 'Amsterdam, The Netherlands'] #["New York, United States"] 0.1, 0.25, 0.50, 
-
-    r_info_dual_mode = OrderedDict({
-                          
-                          "#REQUESTS": [20],
-
-                          "DEMAND_DIST_MODE": {"D1":{("autonomous", "autonomous"):0.2,
-                                                     ("autonomous", "conventional"):0.3,
-                                                     ("conventional", "autonomous"):0.3,
-                                                     ("conventional", "conventional"):0.2}},
-                           
-                          "SL_SHARE": {"S1":{"C":{"request_share":0.2, "overall_sl":0.7,"pk_delay":300, "trip_delay":600},
-                                             "B":{"request_share":0.6, "overall_sl":0.8,"pk_delay":180, "trip_delay":300},
-                                             "A":{"request_share":0.2, "overall_sl":0.9,"pk_delay":120, "trip_delay":0}}},
-
-                          "INTERVAL": {"05-10min": (300, 600)},
-                          
-                          "TRIPS_DIST": {"0.1km-10km": (100, 10000)},
-                          
-                          "DEMAND_LIMIT": {("A5"): {"H": [CompartmentHuman("A", 5)]}}})
-                                                       
-    v_info_dual = OrderedDict({"#VEHICLES": [20],
-                               "COMPARTMENTS DIV.": {"A5": [CompartmentHuman("A", 5)]},
-                               "MODE_INFO":{"autonomous":{"fixed_cost":20000, "var_cost":0.001},
-                                              "dual":{"fixed_cost":15000, "var_cost":0.002},
-                                      "conventional":{"fixed_cost":10000, "var_cost":0.001}}})
-                               
+    
     vehicle_tuples = None
     request_tuples = None
     network_tuples = None
@@ -66,11 +25,11 @@ class GenTestCase:
         get_instance_file_name(st, i, get_file_name(r), p, nz)
         if st == "zones" else
         get_instance_file_name(st, i, get_file_name(r), p)    
-        for r in cls.network_instances["REGION"]
-        for p in cls.network_instances["SPREAD"]
-        for st in cls.network_instances["SUBNETWORK_TYPES"]
-        for i in range(1, cls.network_instances["#TEST"]+1)
-        for nz in cls.network_instances["#ZONES"]])
+        for r in DaoHybrid.network_instances["REGION"]
+        for p in DaoHybrid.network_instances["SPREAD"]
+        for st in DaoHybrid.network_instances["SUBNETWORK_TYPES"]
+        for i in range(1, DaoHybrid.network_instances["#TEST"]+1)
+        for nz in DaoHybrid.network_instances["#ZONES"]])
         
     @classmethod
     def gen_vehicles_tuples(cls):
@@ -79,8 +38,8 @@ class GenTestCase:
         # v ------- e.g. [10, 20, 30] (number of vehicles)
         # c ------- e.g. [A4, A2, A1] (4 adult places, 2 adult places)
         cls.vehicle_tuples = ["{0:02}_{1}".format(v, c)
-        for v in cls.v_info_dual["#VEHICLES"]
-        for c in cls.v_info_dual["COMPARTMENTS DIV."]]
+        for v in DaoHybrid.v_info_dual["#VEHICLES"]
+        for c in DaoHybrid.v_info_dual["COMPARTMENTS DIV."]]
 
     @classmethod
     def gen_requests_tuples(cls):        
@@ -93,12 +52,12 @@ class GenTestCase:
         # d_mode --- e.g. ["D1", "D2"] (What is the demand share going from A to A, A to C, C to A and C to C)
         # dl ------- e.g. ["A5"] (customers request from 1 to 5 adult compartments)
         cls.request_tuples = ["{0:02}_{1}_{2}_{3}_{4}_{5}".format(r, d_mode, sl, ibr, td, dl)
-        for r in cls.r_info_dual_mode["#REQUESTS"] 
-        for td in cls.r_info_dual_mode["TRIPS_DIST"]
-        for sl in cls.r_info_dual_mode["SL_SHARE"]
-        for ibr in cls.r_info_dual_mode["INTERVAL"]
-        for d_mode in cls.r_info_dual_mode["DEMAND_DIST_MODE"]
-        for dl in cls.r_info_dual_mode["DEMAND_LIMIT"]]
+        for r in DaoHybrid.r_info_dual_mode["#REQUESTS"] 
+        for td in DaoHybrid.r_info_dual_mode["TRIPS_DIST"]
+        for sl in DaoHybrid.r_info_dual_mode["SL_SHARE"]
+        for ibr in DaoHybrid.r_info_dual_mode["INTERVAL"]
+        for d_mode in DaoHybrid.r_info_dual_mode["DEMAND_DIST_MODE"]
+        for dl in DaoHybrid.r_info_dual_mode["DEMAND_LIMIT"]]
 
     source = 'E:/yellow_tripdata_2015-02.csv'
 
@@ -154,8 +113,8 @@ class GenTestCase:
         print("Creating vehicle instances...",  GenTestCase.vehicle_tuples
         )
             
-        n_vehicles = GenTestCase.v_info_dual["#VEHICLES"]
-        compartments = GenTestCase.v_info_dual["COMPARTMENTS DIV."]
+        n_vehicles = DaoHybrid.v_info_dual["#VEHICLES"]
+        compartments = DaoHybrid.v_info_dual["COMPARTMENTS DIV."]
 
         min_distance = 0
         max_distance = 100000
@@ -195,13 +154,13 @@ class GenTestCase:
 
             for e in list_of_vehicles_origins:
 
-                str_id = k + "_" + GenTestCase.mode_code[e["type"]]
+                str_id = k + "_" + DaoHybrid.mode_code[e["type"]]
 
                 #print("Generating vehicles:", str_id)
 
                 loads_v = ",".join([str(v) for v in values])
 
-                csv_response = "{0},{1},{2},{3:.6f},{4:.6f},{5},{6},{7}\n".format(str_id, e["type"], GenTestCase.start_revealing, float(
+                csv_response = "{0},{1},{2},{3:.6f},{4:.6f},{5},{6},{7}\n".format(str_id, e["type"], DaoHybrid.start_revealing, float(
                     e["origin_longitude"]), float(e["origin_latitude"]), e['origin_id'], 8, loads_v )
                 #print(csv_response)
 
@@ -212,10 +171,10 @@ class GenTestCase:
     def genVehicles(instance_path):
         print("Creating vehicle instances...")
 
-        n_vehicles = GenTestCase.v_info["#VEHICLES"]
+        n_vehicles = DaoHybrid.v_info["#VEHICLES"]
         # Heterogeneus and regular vehicles
-        fleet_composition = GenTestCase.v_info["FLEET COMPOSITION"]
-        compartments = GenTestCase.v_info["COMPARTMENTS DIV."]
+        fleet_composition = DaoHybrid.v_info["FLEET COMPOSITION"]
+        compartments = DaoHybrid.v_info["COMPARTMENTS DIV."]
 
         min_distance = 0
         max_distance = 1
@@ -227,7 +186,7 @@ class GenTestCase:
 
         for v in n_vehicles:  # 6
             max_amount = v
-            list_of_requests = GenTestCase.extract_data_nyc(GenTestCase.source,
+            list_of_requests = GenTestCase.extract_data_nyc(source,
                                                             extraction_interval,
                                                             min_distance,
                                                             max_distance,
@@ -274,7 +233,7 @@ class GenTestCase:
                                 str_amount = ",".join(
                                     valueHuman+(["0"]*len(valueFreight)))
 
-                        csv_response = "{0},{1},{2:.6f},{3:.6f},{4},{5}\n".format(str_id, GenTestCase.start_revealing, float(
+                        csv_response = "{0},{1},{2:.6f},{3:.6f},{4},{5}\n".format(str_id, DaoHybrid.start_revealing, float(
                             e["pickup_longitude"]), float(e["pickup_latitude"]), 8, str_amount)
                         print(csv_response)
 
@@ -285,14 +244,14 @@ class GenTestCase:
     def genRequests(instance_path):
 
         print("Extracting data from NY...")
-        n_requests = GenTestCase.r_info["#REQUESTS"]
-        request_comp_pf = GenTestCase.r_info["H_F_SHARE"]
-        parcel_spatial_distribution = GenTestCase.r_info["SPATIAL_DIST"]
-        interval_between_requests = GenTestCase.r_info["INTERVAL"]
-        trips_distance = GenTestCase.r_info["TRIPS_DIST"]
-        occupancy_levels = GenTestCase.r_info["OCCUPANCY_LEVELS"]
-        demand_limit = GenTestCase.r_info["DEMAND_LIMIT"]
-        nature_requests = GenTestCase.r_info["NATURE"]
+        n_requests = DaoHybrid.r_info["#REQUESTS"]
+        request_comp_pf = DaoHybrid.r_info["H_F_SHARE"]
+        parcel_spatial_distribution = DaoHybrid.r_info["SPATIAL_DIST"]
+        interval_between_requests = DaoHybrid.r_info["INTERVAL"]
+        trips_distance = DaoHybrid.r_info["TRIPS_DIST"]
+        occupancy_levels = DaoHybrid.r_info["OCCUPANCY_LEVELS"]
+        demand_limit = DaoHybrid.r_info["DEMAND_LIMIT"]
+        nature_requests = DaoHybrid.r_info["NATURE"]
 
         pk_delay_p = 180
         dl_delay_p = 600
@@ -318,7 +277,7 @@ class GenTestCase:
                     max_interval = interval_between_requests[ibr][1]
 
                     start_date = datetime.strptime(
-                        GenTestCase.start_revealing, '%Y-%m-%d %H:%M:%S')
+                        DaoHybrid.start_revealing, '%Y-%m-%d %H:%M:%S')
 
                     # pprint.pprint(list_of_requests)
                     for j in nature_requests:  # JOINT OR DISJOINT
@@ -396,12 +355,12 @@ class GenTestCase:
     @staticmethod
     def genRequests2(path_requests, network_path):
         print("Generating dual-mode demand...")
-        n_requests = GenTestCase.r_info_dual_mode["#REQUESTS"]
-        interval_between_requests = GenTestCase.r_info_dual_mode["INTERVAL"]
-        trips_distance = GenTestCase.r_info_dual_mode["TRIPS_DIST"]
-        demand_limit = GenTestCase.r_info_dual_mode["DEMAND_LIMIT"]
-        demand_dist_mode = GenTestCase.r_info_dual_mode["DEMAND_DIST_MODE"]
-        service_level_share = GenTestCase.r_info_dual_mode["SL_SHARE"]
+        n_requests = DaoHybrid.r_info_dual_mode["#REQUESTS"]
+        interval_between_requests = DaoHybrid.r_info_dual_mode["INTERVAL"]
+        trips_distance = DaoHybrid.r_info_dual_mode["TRIPS_DIST"]
+        demand_limit = DaoHybrid.r_info_dual_mode["DEMAND_LIMIT"]
+        demand_dist_mode = DaoHybrid.r_info_dual_mode["DEMAND_DIST_MODE"]
+        service_level_share = DaoHybrid.r_info_dual_mode["SL_SHARE"]
 
         # Set of test cases to be generated
         gen_set = set()
@@ -458,7 +417,7 @@ class GenTestCase:
             max_interval = interval_between_requests[ibr][1]
             
             # Format start date
-            start_date = datetime.strptime(GenTestCase.start_revealing,
+            start_date = datetime.strptime(DaoHybrid.start_revealing,
                                             '%Y-%m-%d %H:%M')
             
             # Set compartments
@@ -736,13 +695,13 @@ class GenTestCase:
 
     @staticmethod
     def generate_network_instances(path_instances):
-        regions = GenTestCase.network_instances["REGION"]
-        save_fig = GenTestCase.network_instances["SAVE_FIG"]
-        show_seeds = GenTestCase.network_instances["SHOW_SEEDS"]
-        subnetwork_types = GenTestCase.network_instances["SUBNETWORK_TYPES"]
-        spread = GenTestCase.network_instances["SPREAD"]
-        n_of_instances = GenTestCase.network_instances["#TEST"]
-        n_zones = GenTestCase.network_instances["#ZONES"]
+        regions = DaoHybrid.network_instances["REGION"]
+        save_fig = DaoHybrid.network_instances["SAVE_FIG"]
+        show_seeds = DaoHybrid.network_instances["SHOW_SEEDS"]
+        subnetwork_types = DaoHybrid.network_instances["SUBNETWORK_TYPES"]
+        spread = DaoHybrid.network_instances["SPREAD"]
+        n_of_instances = DaoHybrid.network_instances["#TEST"]
+        n_zones = DaoHybrid.network_instances["#ZONES"]
 
         for r in regions:
             file_name = get_file_name(r)
