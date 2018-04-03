@@ -1,3 +1,4 @@
+import config
 from Request import Request
 from Vehicle import Vehicle
 from Compartment import *
@@ -36,48 +37,19 @@ class Dao(object):
     code_mode = {"A":"autonomous", "C":"conventional", "D":"dual"}
     mode_code = {"autonomous":"A", "conventional":"C", "dual":"D"}
 
-    network_instances = OrderedDict({
-                        "REGION": ['Delft, The Netherlands'],
-                        "SUBNETWORK_TYPES": ["zones", "subnetworks"],
-                        "SPREAD": [0.1, 0.25, 0.50],
-                        "#ZONES": [1,2,4,8],
-                        "#TEST": 10,
-                        "SAVE_FIG": True,
-                        "SHOW_SEEDS": True
-                        }) #, 'Amsterdam, The Netherlands'] #["New York, United States"] 0.1, 0.25, 0.50, 
 
-    r_info_dual_mode = OrderedDict({
-                          
-                          "#REQUESTS": [10,20,50,100],
-
-                          "DEMAND_DIST_MODE": {"AV":{("autonomous", "autonomous"):0.3,
-                                                     ("autonomous", "conventional"):0.2,
-                                                     ("conventional", "autonomous"):0.2,
-                                                     ("conventional", "conventional"):0.3},
-                                                "HI":{("autonomous", "autonomous"):0.4,
-                                                     ("autonomous", "conventional"):0.1,
-                                                     ("conventional", "autonomous"):0.1,
-                                                     ("conventional", "conventional"):0.4},
-                                                "LO":{("autonomous", "autonomous"):0.1,
-                                                     ("autonomous", "conventional"):0.4,
-                                                     ("conventional", "autonomous"):0.4,
-                                                     ("conventional", "conventional"):0.1}},
-                           
-                          "SL_SHARE": {"S1":{"C":{"request_share":0.2, "overall_sl":0.7,"pk_delay":300, "trip_delay":600},
-                                             "B":{"request_share":0.6, "overall_sl":0.8,"pk_delay":300, "trip_delay":600},
-                                             "A":{"request_share":0.2, "overall_sl":0.9,"pk_delay":300, "trip_delay":600}}},
-
-                          "INTERVAL": {"05-10min": (300, 600), "00-01min": (0, 60)},
-                          
-                          "TRIPS_DIST": {"0.1km-10km": (100, 10000)},
-                          
-                          "DEMAND_LIMIT": {("A5"): {"H": [CompartmentHuman("A", 5)]}}})
-                                                       
-    v_info_dual = OrderedDict({"#VEHICLES": [10, 20, 50, 100],
+    """v_info_dual = OrderedDict({"#VEHICLES": [10, 20],
                                "COMPARTMENTS DIV.": {"A5": [CompartmentHuman("A", 5)]},
-                               "MODE_INFO":{"autonomous":{"fixed_cost":20000, "var_cost":0.001},
-                                                  "dual":{"fixed_cost":15000, "var_cost":0.003},
-                                          "conventional":{"fixed_cost":10000, "var_cost":0.003}}})
+                               "MODE_INFO":{"C1":{"autonomous":{"fixed_cost":20000, "var_cost":0.001},
+                                                        "dual":{"fixed_cost":15000, "var_cost":0.003},
+                                                "conventional":{"fixed_cost":10000, "var_cost":0.003}},
+                                            "C2":{"autonomous":{"fixed_cost":10000, "var_cost":0.001},
+                                                        "dual":{"fixed_cost":10000, "var_cost":0.003},
+                                                "conventional":{"fixed_cost":10000, "var_cost":0.003}},
+                                            "C3":{"autonomous":{"fixed_cost":20000, "var_cost":0.001},
+                                                        "dual":{"fixed_cost":15000, "var_cost":0.003},
+                                                "conventional":{"fixed_cost":10000, "var_cost":0.003}}
+                                          }})"""
 
     """"SL_SHARE": {"S1":{"C":{"request_share":0.2, "overall_sl":0.7,"pk_delay":300, "trip_delay":600},
                                              "B":{"request_share":0.6, "overall_sl":0.8,"pk_delay":180, "trip_delay":300},
@@ -418,6 +390,25 @@ class Dao(object):
                     self.e_l[(m,p2)]["delay"] = dl_delay_p2
                     self.e_l[(m,p2)]["service"] = service_p2
                     self.e_l[(m,p2)]["latest"] = self.e_l[(m,p2)]["earliest"] + dl_delay_p2
+                    
+                    # If times are arbitrary, shrink time windows!
+                    """true_latest_p2 = self.e_l[(m,p1)]["latest"] + self.e_l[(m,p1)]["service"] + dist_p1_p2
+                    dif = true_latest_p2 - self.e_l[(m,p2)]["latest"]
+                    true_latest_p1 = (self.e_l[(m,p1)]["latest"] - dif if dif > 0  else self.e_l[(m,p1)]["latest"])
+
+                    #pprint.pprint(self.e_l)
+                    print("{0} - {1} ({2}) -> {3} + {4} = {5} <= {6} - {7} + {8} - ({9})".format(
+                    p1,
+                    p2,
+                    m,
+                    self.e_l[(m,p1)]["latest"],
+                    self.e_l[(m,p1)]["service"] + dist_p1_p2,
+                    true_latest_p2,
+                    self.e_l[(m,p2)]["latest"],
+                    self.e_l[(m,p2)]["earliest"],
+                    dl_delay_p2,
+                    true_latest_p1))"""
+
                     logger.debug("%s - %s -> %s", p1, Node.get_formatted_time_h(self.e_l[(m,p1)]["earliest"]+earliest_tstamp), Node.get_formatted_time_h(self.e_l[(m,p1)]["latest"]+earliest_tstamp))
                     logger.debug("%s - %s -> %s", p2, Node.get_formatted_time_h(self.e_l[(m,p2)]["earliest"]+earliest_tstamp), Node.get_formatted_time_h(self.e_l[(m,p2)]["latest"]+earliest_tstamp))
                     
@@ -604,17 +595,14 @@ class DaoHybrid(Dao):
                                                      None,
                                                      network_node_id=id_origin_node)
 
-                print("FIXED:", DaoHybrid.v_info_dual["MODE_INFO"][type_vehicle]["fixed_cost"])
-
-                print("VARY:", DaoHybrid.v_info_dual["MODE_INFO"][type_vehicle]["var_cost"])
                 veh = Vehicle(av_id,
                                 autonomy,
                                 initial_location,
                                 dic_capacities,
                                 available_at,
                                 type_vehicle=type_vehicle,
-                                acquisition_cost = DaoHybrid.v_info_dual["MODE_INFO"][type_vehicle]["fixed_cost"],
-                                operation_cost_s = DaoHybrid.v_info_dual["MODE_INFO"][type_vehicle]["var_cost"])
+                                acquisition_cost = config.vehicle_instances["MODE_INFO"][type_vehicle]["fixed_cost"],
+                                operation_cost_s = config.vehicle_instances["MODE_INFO"][type_vehicle]["var_cost"])
 
 
                 # Add vehicle in list
@@ -659,10 +647,6 @@ class DaoHybrid(Dao):
         # vehicles dictionary
         self.vehicle_dic = {v.get_id(): v for v in self.vehicle_list}
 
-
-        for v in self.vehicle_dic.values():
-                print("XXXA", v)
-                print(v.operation_cost_s)
 
         # Create dictionary of starting points in each vehicle
         self.starting_nodes_dic = {self.get_vehicle_dic()[k]

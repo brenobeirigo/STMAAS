@@ -1,3 +1,5 @@
+import config
+
 from DaoHybrid import *
 from datetime import datetime, date, time, timedelta
 from Compartment import *
@@ -25,11 +27,11 @@ class GenTestCase:
         get_instance_file_name(st, i, get_file_name(r), p, nz)
         if st == "zones" else
         get_instance_file_name(st, i, get_file_name(r), p)    
-        for r in DaoHybrid.network_instances["REGION"]
-        for p in DaoHybrid.network_instances["SPREAD"]
-        for st in DaoHybrid.network_instances["SUBNETWORK_TYPES"]
-        for i in range(1, DaoHybrid.network_instances["#TEST"]+1)
-        for nz in DaoHybrid.network_instances["#ZONES"]])
+        for r in config.network_instances["REGION"]
+        for p in config.network_instances["SPREAD"]
+        for st in config.network_instances["SUBNETWORK_TYPES"]
+        for i in range(1, config.network_instances["#TEST"]+1)
+        for nz in config.network_instances["#ZONES"]])
         
     @classmethod
     def gen_vehicles_tuples(cls):
@@ -38,8 +40,8 @@ class GenTestCase:
         # v ------- e.g. [10, 20, 30] (number of vehicles)
         # c ------- e.g. [A4, A2, A1] (4 adult places, 2 adult places)
         cls.vehicle_tuples = ["{0:02}_{1}".format(v, c)
-        for v in DaoHybrid.v_info_dual["#VEHICLES"]
-        for c in DaoHybrid.v_info_dual["COMPARTMENTS DIV."]]
+        for v in config.vehicle_instances["#VEHICLES"]
+        for c in config.vehicle_instances["COMPARTMENTS DIV."]]
 
     @classmethod
     def gen_requests_tuples(cls):        
@@ -52,12 +54,12 @@ class GenTestCase:
         # d_mode --- e.g. ["D1", "D2"] (What is the demand share going from A to A, A to C, C to A and C to C)
         # dl ------- e.g. ["A5"] (customers request from 1 to 5 adult compartments)
         cls.request_tuples = ["{0:02}_{1}_{2}_{3}_{4}_{5}".format(r, d_mode, sl, ibr, td, dl)
-        for r in DaoHybrid.r_info_dual_mode["#REQUESTS"] 
-        for td in DaoHybrid.r_info_dual_mode["TRIPS_DIST"]
-        for sl in DaoHybrid.r_info_dual_mode["SL_SHARE"]
-        for ibr in DaoHybrid.r_info_dual_mode["INTERVAL"]
-        for d_mode in DaoHybrid.r_info_dual_mode["DEMAND_DIST_MODE"]
-        for dl in DaoHybrid.r_info_dual_mode["DEMAND_LIMIT"]]
+        for r in config.request_instances["#REQUESTS"] 
+        for td in config.request_instances["TRIPS_DIST"]
+        for sl in config.request_instances["SL_SHARE"]
+        for ibr in config.request_instances["INTERVAL"]
+        for d_mode in config.request_instances["DEMAND_DIST_MODE"]
+        for dl in config.request_instances["DEMAND_LIMIT"]]
 
     source = 'E:/yellow_tripdata_2015-02.csv'
 
@@ -98,9 +100,9 @@ class GenTestCase:
 
     @staticmethod
     def getRandomCompartments(list_of_compartments):
-        amount = randint(1, len(list_of_compartments))
+        number = randint(1, len(list_of_compartments))
         selected = []
-        while(len(selected) is not amount):
+        while(len(selected) is not number):
             el = random.choice(list_of_compartments)
             if(el not in selected):
                 selected.append(el)
@@ -113,8 +115,8 @@ class GenTestCase:
         print("Creating vehicle instances...",  GenTestCase.vehicle_tuples
         )
             
-        n_vehicles = DaoHybrid.v_info_dual["#VEHICLES"]
-        compartments = DaoHybrid.v_info_dual["COMPARTMENTS DIV."]
+        n_vehicles = config.vehicle_instances["#VEHICLES"]
+        compartments = config.vehicle_instances["COMPARTMENTS DIV."]
 
         min_distance = 0
         max_distance = 100000
@@ -355,12 +357,12 @@ class GenTestCase:
     @staticmethod
     def genRequests2(path_requests, network_path):
         print("Generating dual-mode demand...")
-        n_requests = DaoHybrid.r_info_dual_mode["#REQUESTS"]
-        interval_between_requests = DaoHybrid.r_info_dual_mode["INTERVAL"]
-        trips_distance = DaoHybrid.r_info_dual_mode["TRIPS_DIST"]
-        demand_limit = DaoHybrid.r_info_dual_mode["DEMAND_LIMIT"]
-        demand_dist_mode = DaoHybrid.r_info_dual_mode["DEMAND_DIST_MODE"]
-        service_level_share = DaoHybrid.r_info_dual_mode["SL_SHARE"]
+        n_requests = config.request_instances["#REQUESTS"]
+        interval_between_requests = config.request_instances["INTERVAL"]
+        trips_distance = config.request_instances["TRIPS_DIST"]
+        demand_limit = config.request_instances["DEMAND_LIMIT"]
+        demand_dist_mode = config.request_instances["DEMAND_DIST_MODE"]
+        service_level_share = config.request_instances["SL_SHARE"]
 
         # Set of test cases to be generated
         gen_set = set()
@@ -464,10 +466,16 @@ class GenTestCase:
                 offset_cumulative += offset
                 revealing_time = start_date + offset_cumulative
 
-                # Final list of compartments in request
+                # Final list of compartments in request (as dictionaries)
                 comp_chosen = GenTestCase.getRandomCompartments(comp["H"])
+                
+                # List of compartments (as Compartment objects)
+                comp_list = [Compartment.factory("H", c["label_comp"], c["number_comp"]) for c in comp_chosen]
 
-                e["demand"] = "/".join(str(c.get_random_copy()) for c in comp_chosen)
+                # Generate random demand for each compartment (>=1)
+                e["demand"] = "/".join(str(c.get_random_copy()) for c in comp_list)
+                
+                # Assemble request line
                 csv_data = "{0},{1:.6f},{2:.6f},{3:.6f},{4:.6f},{5},{6},{7},{8},{9},{10},".format(
                     revealing_time.strftime('%Y-%m-%d %H:%M'),
                     float(e["pickup_longitude"]),
@@ -480,7 +488,8 @@ class GenTestCase:
                     e["pickup_id"],
                     e["dropoff_id"],
                     sl_request_list[i][0])
-                    
+
+                # Write request    
                 with open(path_requests +"/"+
                             instance_name, 'a') as file:
                     file.write(csv_data+"\n")
@@ -695,13 +704,13 @@ class GenTestCase:
 
     @staticmethod
     def generate_network_instances(path_instances):
-        regions = DaoHybrid.network_instances["REGION"]
-        save_fig = DaoHybrid.network_instances["SAVE_FIG"]
-        show_seeds = DaoHybrid.network_instances["SHOW_SEEDS"]
-        subnetwork_types = DaoHybrid.network_instances["SUBNETWORK_TYPES"]
-        spread = DaoHybrid.network_instances["SPREAD"]
-        n_of_instances = DaoHybrid.network_instances["#TEST"]
-        n_zones = DaoHybrid.network_instances["#ZONES"]
+        regions = config.network_instances["REGION"]
+        save_fig = config.network_instances["SAVE_FIG"]
+        show_seeds = config.network_instances["SHOW_SEEDS"]
+        subnetwork_types = config.network_instances["SUBNETWORK_TYPES"]
+        spread = config.network_instances["SPREAD"]
+        n_of_instances = config.network_instances["#TEST"]
+        n_zones = config.network_instances["#ZONES"]
 
         for r in regions:
             file_name = get_file_name(r)
@@ -772,7 +781,32 @@ class GenTestCase:
                             # Save subnetwork
                             save_graph_data(Z, file_name=file_name, path=path_instances)
 
+    @staticmethod
+    def get_tested_cases(path):
+        # SET OF CASE TESTS TO SKIP
+        tested_cases = set()
+        while True:
+            try:
+                # Try opening csv file
+                with open(path, "r") as f:
+                    reader = csv.reader(f)
+                    header = next(reader)
 
+                    # For each data row
+                    for row in reader:
+                        # Get instance identity
+                        splitted = row[0:13]
+                        test_case_name = "_".join(splitted)
+                        tested_cases.add(test_case_name)
+
+                pprint.pprint(tested_cases)
+                return tested_cases
+
+            except IOError as e:
+                    # Does not exist OR no read permissions
+                print("Unable to read file... Creating", config.all_result_path)
+                with open(config.all_result_path, 'w') as file:
+                    file.write(",".join(config.labels))
         
     @staticmethod
     def extract_data_nyc(origin_file_path,
@@ -1075,3 +1109,4 @@ def extract_data_nyc(self,
 #print("Start generation!")
 #a = GenTestCase()
 #GenTestCase.generate_network_instances("instances/hybrid/networks")
+

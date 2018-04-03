@@ -1,3 +1,6 @@
+# General configuration
+import config
+
 from DaoHybrid import *
 from OptMethod import *
 import json
@@ -10,7 +13,7 @@ import logging
 # https://www.blog.pythonlibrary.org/2012/08/02/python-101-an-intro-to-logging/
 logger = logging.getLogger('main')
 logging.Logger.disabled = False
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 def log(logger_obj, file, m):
@@ -27,85 +30,15 @@ def close_logs():
         i.flush()
         i.close()
 
-# SERVICE COSTS
-discount_passenger = 0.2  # * (tt / st - 1)
-# Put this data into the files, separation per locker size
-instance_path_vehicle = "instances/hybrid/vehicles"
-instance_path_request = "instances/hybrid/requests"
-instance_path_network = "instances/hybrid/networks"
-result_path_json = "instances/json/"
-all_result_path = "results.csv"
-logs_path = "solution_logs/"
-
-gen_test_cases = False
-# INPUT PARAMETERS
-# PARAMETERS
-time_limit = 10
-# Address of visualization
-url_solution_GUI = "http://localhost/requestGen/solutionGUI.html"
-# Where json responses are saved for exibition
-#json_result_path = "C:/Servers/htdocs/requestGen/jsonResponse/"
-json_result_path = "D:/SERVERS/xampp/htdocs/requestGen/jsonResponse/dual/"
-
-# Fare, Fare per distance and category of the locker
-lockers_info_path = "data/config/config_lockers.csv"
 
 
-# LABELS
-labels_networks = list(DaoHybrid.network_instances.keys())[0:-2]
-labels_vehicles = list(DaoHybrid.v_info_dual.keys())[0:2]
-labels_requests = list(DaoHybrid.r_info_dual_mode.keys())
-
-labels_sol = ["OVERALL_OCCUPANCY",
-              "OPERATING_VEHICLES",
-              "PROFIT",
-              "REQUESTS_REVENUE",
-              "OPERATIONAL_COSTS",
-              "SOL_GAP",
-              "NUM_VARS",
-              "NUM_CONSTRS",
-              "OBJ_BOUND",
-              "OBJ_VAL",
-              "NODE_COUNT",
-              "SOL_COUNT",
-              "ITER_COUNT",
-              "PREPROCESS",
-              "RUNTIME",
-              "PATH_NETWORKS",
-              "PATH_REQUESTS",
-              "PATH_VEHICLES",
-              "IMAGE",
-              "LOG"]
-
-# HEADER JSON OUTPUT
-labels = labels_networks+labels_vehicles + labels_requests + Vehicle.vehicle_modes_short + labels_sol
+"""Helpers.save_json(DaoHybrid.network_instances, "data/config" + "/" + "network" + ".json")
+Helpers.save_json(config.vehicle_instances, "data/config" + "/" + "vehicles" + ".json")
+Helpers.save_json(DaoHybrid.r_info_dual_mode, "data/config" + "/" + "requests" + ".json")"""
 
 
-def get_tested_cases(path):
-    # SET OF CASE TESTS TO SKIP
-    tested_cases = set()
-    while True:
-        try:
-            # Try opening csv file
-            with open(path, "r") as f:
-                reader = csv.reader(f)
-                header = next(reader)
 
-                # For each data row
-                for row in reader:
-                    # Get instance identity
-                    splitted = row[0:13]
-                    test_case_name = "_".join(splitted)
-                    tested_cases.add(test_case_name)
 
-            pprint.pprint(tested_cases)
-            return tested_cases
-
-        except IOError as e:
-                # Does not exist OR no read permissions
-            print("Unable to read file... Creating", all_result_path)
-            with open(all_result_path, 'w') as file:
-                file.write(",".join(labels))
 
 
 ##############################################################################
@@ -124,34 +57,73 @@ GenTestCase.gen_requests_tuples()
 
 
 # Generate test cases?
-if gen_test_cases:
-    GenTestCase.genAllTestCases(instance_path_vehicle,
-                                instance_path_request,
-                                instance_path_network)
+if config.gen_test_cases:
+    GenTestCase.genAllTestCases(config.instance_path_vehicle,
+                                config.instance_path_request,
+                                config.instance_path_network)
 
 
 # Get all tested cases to avoid unecessary work
-tested_cases = get_tested_cases(all_result_path)
+tested_cases = GenTestCase.get_tested_cases(config.all_result_path)
+
+all_tested = set([path_instance_n + "_" + path_instance_v + "_" + path_instance_r
+                for path_instance_n in GenTestCase.network_tuples
+                for path_instance_v in GenTestCase.vehicle_tuples
+                for path_instance_r in GenTestCase.request_tuples
+                    if int(path_instance_v.split("_")[0])<=int(path_instance_r.split("_")[0])])
+
+
+
+
+n_tested = len(tested_cases)
+
+total_tested = len(all_tested)
+
+
+"""thefile1 = open('tested_cases.txt', 'w')
+for item in tested_cases:
+  thefile1.write("%s\n" % item)
+
+thefile2 = open('all_tested.txt', 'w')
+for item in all_tested:
+  thefile2.write("%s\n" % item)
+  """
+
+
+print("N. TESTED:", n_tested)
+#pprint.pprint(tested_cases)
+
+print("ALL TESTS:", total_tested)
+#pprint.pprint(all_tests)
+
+print("INTERSECTION")
+print(len(all_tested.intersection(tested_cases)))
+
+
+print ("Remaining tests: {}/{}({:.2f}%)".format(n_tested, total_tested, n_tested/ total_tested))
 
 for path_instance_n in GenTestCase.network_tuples:
-    folder_v_nw = instance_path_vehicle+"/"+path_instance_n
-    folder_r_nw = instance_path_request+"/"+path_instance_n
+    folder_v_nw = config.instance_path_vehicle+"/"+path_instance_n
+    folder_r_nw = config.instance_path_request+"/"+path_instance_n
 
     # Vary the vehicles attributes
     for path_instance_v in GenTestCase.vehicle_tuples:
         # Vary the requests attributes
         for path_instance_r in GenTestCase.request_tuples:
-            n_veh = path_instance_v.split("_")[0]
-            n_req = path_instance_r.split("_")[0]
-            # There must have at least one vehicle per request
-            if n_veh != n_req:
+            n_veh = int(path_instance_v.split("_")[0])
+            n_req = int(path_instance_r.split("_")[0])
+            
+            # There must have at least/most one vehicle per request
+            if n_veh > n_req:
                 continue
 
             cont += 1
+            n_tested += 1
+
             instance_id = path_instance_n + "_" + path_instance_v + "_" + path_instance_r
 
             # Log instance data
-            log(logger, logs_path + instance_id + ".log", 'w')
+            log(logger, config.logs_path + instance_id + ".log", 'w')
 
             # Only not tested instances are saved
             if instance_id in tested_cases:
@@ -170,11 +142,11 @@ for path_instance_n in GenTestCase.network_tuples:
             print(s)
 
             try:
-                DAO = DaoHybrid((instance_path_network, path_instance_n),
+                DAO = DaoHybrid((config.instance_path_network, path_instance_n),
                             (folder_r_nw, path_instance_r+".csv"),
                             (folder_v_nw, path_instance_v+".csv"),
-                            lockers_info_path,
-                            discount_passenger)
+                            config.lockers_info_path,
+                            config.discount_passenger)
             
             # Input file probably doesn't exist ("Not generated yet")
             except Exception as e:
@@ -184,21 +156,23 @@ for path_instance_n in GenTestCase.network_tuples:
                 continue
             
             
-            print("*** RUNNING MODEL ****")
-            darp2 = SARP_PL(DAO, time_limit)
-
-            # Print routing data in vehicles
-            print("\
-            ############################### \
-            FLEET DATA \
-            ##############################")
+            
             try:
+                print("*** RUNNING MODEL ****")
+                darp2 = SARP_PL(DAO, config.time_limit)
+
+                # Print routing data in vehicles
+                print("\
+                ############################### \
+                FLEET DATA \
+                ##############################")
+
                 response = darp2.get_response()
                 response.print_requests_info()
             except:
-                print("Time is up. No response found.")
                 close_logs()
                 continue
+            
             print("RUNTIME:", response.get_solver_sol()["runtime"])
 
             # jsonResponse = darp2.get_response().get_json()
@@ -211,19 +185,18 @@ for path_instance_n in GenTestCase.network_tuples:
 
             # Get mix of vehicles like 1,2,3 for A,C,D
             mix = list()
-            n_mix_mode = response.get_mix()
             for k in Vehicle.vehicle_modes:
-                if k in n_mix_mode:
-                    mix.append(str(n_mix_mode[k]))
+                if k in response.mix_n:
+                    mix.append(str(response.mix_n[k]))
                 else:
                     mix.append("0")
             mix = ",".join(mix)
 
             save_mode = "path_excel"
             source_input = defaultdict(lambda:defaultdict(str))
-            source_input["path"]["network"] = instance_path_network + "/" + path_instance_n + ".json"
-            source_input["path"]["request"] = instance_path_request + "/" + path_instance_n + "/" + path_instance_r+".csv"
-            source_input["path"]["vehicle"] =  instance_path_vehicle + "/" + path_instance_n + "/" + path_instance_v+".csv"
+            source_input["path"]["network"] = config.instance_path_network + "/" + path_instance_n + ".json"
+            source_input["path"]["request"] = config.instance_path_request + "/" + path_instance_n + "/" + path_instance_r+".csv"
+            source_input["path"]["vehicle"] =  config.instance_path_vehicle + "/" + path_instance_n + "/" + path_instance_v+".csv"
             source_input["path"]["image"] =  "images/" + path_instance_n + ".png"
             source_input["path"]["log"] = "solution_logs/"+instance_id+".log"
             source_input["path_excel"]["network"] = "=HYPERLINK(\"{0}\";\"{1}\")".format(source_input["path"]["network"], path_instance_n)
@@ -261,12 +234,14 @@ for path_instance_n in GenTestCase.network_tuples:
             )
 
             print(line)
+            print("----->>>>> PROGRESS {0}/{1}({2:.2f}%)".format(n_tested, total_tested, n_tested/ total_tested))
+
 
             # Save json to file
             """with open(json_result_path + json_file_name, 'w') as file:
                 file.write(jsonResponse)
             """
-            with open(all_result_path, 'a') as file:
+            with open(config.all_result_path, 'a') as file:
                 file.write("\n"+line)
             
             close_logs()

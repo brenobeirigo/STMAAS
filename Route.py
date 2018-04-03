@@ -48,7 +48,7 @@ class Route:
         vehicle = self.DAO.get_vehicles_nodes()[origin_v]
         self.ordered_list = list(vehicle.get_path().keys())
 
-        print("Ordered List")
+        # print("Ordered List")
         pprint.pprint(self.ordered_list)
 
         for i in range(0,len(self.ordered_list)-1):

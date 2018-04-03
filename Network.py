@@ -130,6 +130,7 @@ def remove_edges(G, m):
     if len(G.edges()) == 0:
         print("NETWORK OF TYPE \"", m, "\" HAS NO EDGES.")
 
+@staticmethod
 def save_dist_dic(data, file_name):
     # Write JSON file
     print("Saving distances at \"",file_name,"\"...")
@@ -658,7 +659,7 @@ def save_graph_data(G, modes_list=["autonomous","conventional"], path=root, file
         file_name = "distances_{0}".format(G.graph["name"])
     
     # Save distances FROM:{TO1:DIS1, TO2:DIS2, TO3:DIS3}
-    save_dist_dic(distance_dic, path + "/" + file_name + ".json")
+    Network.save_dist_dic(distance_dic, path + "/" + file_name + ".json")
     
     print("Saving graph data ", file_name)
     # Save modified network
@@ -686,31 +687,36 @@ def gen_od_data(**args):
     # ("autonomous", "conventional"):3,
     # ("conventional", "autonomous"):3,
     # ("conventional", "conventional"):2}}
-    for r_from_to in demand_dist_mode.keys():
+    for r_from_to in demand_dist_mode:
+        #e.g.: autonomous
+        m_from = r_from_to["from"]
+        #e.g.: conventional
+        m_to = r_from_to["to"]
+        # How many requests per configuration
+        from_to_share = r_from_to["share"]
         
-        m_from = r_from_to[0] #e.g.: autonomous
-        m_to = r_from_to[1] #e.g.: conventional
-        # print("REQUEST FROM/TO REGION:", m_from, "-->", m_to)
-        
+        # print("REQUEST FROM/TO REGION:", m_from, "-->", m_to, percentage_req_per_mode)
 
         # Suppose m_from = m_to, therefore a "m_to" vehicle
         # can carry out the transportation
         dist_mode = m_to
+        
         # If modes of OD differ, the transportation can only be carried
         # out by a ### dual ### mode vehicle
         if m_from != m_to:
             dist_mode = "dual"
         
-        # How many requests per configuration
-        percentage_req_per_mode = demand_dist_mode[r_from_to]
+        # Total number of requests from region m_from to region m_to 
+        n_req_mode = int(from_to_share * n_of_requests)
 
-        n_req_mode = int(percentage_req_per_mode * n_of_requests)
+
         print("req per mode:", n_req_mode)
         for i in range(0, n_req_mode):
             #print("from_to", from_node)
             #print("dist_keys", dist[from_node])
 
             while True:
+                # Find random departure
                 from_node = str(choice(list(mode_nodes[m_from])))
 
                 # Seek a random destination for "from_node" that can
@@ -721,10 +727,10 @@ def gen_od_data(**args):
                 dist_from_to = dist[from_node][dist_mode][to_node]
 
                 # Stop searching if adequate destination is found
-                print(from_node, to_node, dist_from_to, min_dist, max_dist)
                 if to_node != from_node \
                 and dist_from_to >= min_dist \
                 and dist_from_to <= max_dist:
+                    print(from_node, to_node, dist_from_to, min_dist, max_dist)
                     break
 
             x_from = network.node[int(from_node)]["x"]
@@ -744,9 +750,6 @@ def gen_od_data(**args):
             list_of_requests.append(req)
 
     return list_of_requests
-    # for i in range inside_cv:
-
-    # for i in range cv_av:
 
 def gen_vehicle_data(**args):
     """

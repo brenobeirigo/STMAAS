@@ -17,6 +17,11 @@ class Compartment:
     def __repr__(self):
         return self.label + Compartment.sep2 + str(self.amount)
     
+    @classmethod
+    def factory(cls, type_comp, label_comp, number_comp):
+        if type_comp == "H":
+            return CompartmentHuman(label_comp, number_comp)
+
     @staticmethod
     def get_array_of_compartments(str_compartment, s1, s2):
         comps = str_compartment.split(s1)

@@ -118,9 +118,9 @@ class Response(object):
                 
                 
             
+        #print("ORDERED")
+        #pprint.pprint(ordered_v_nodes)
         print("ORDERED")
-        pprint.pprint(ordered_v_nodes)
-        print("ORDERED 2")
         pprint.pprint(nodes_vehicle)
                 
         for k, route in nodes_vehicle.items():
@@ -130,11 +130,12 @@ class Response(object):
             for i in route:
                 # Departure node
                 dep_node = self.DAO.get_nodes_dic()[i]
-                if isinstance(dep_node, NodePK):
-                    print("DURATION",k,i, "=", Node.get_formatted_duration_h(self.travel_t[k, i]))
+                
+                #if isinstance(dep_node, NodePK):
+                #    print("DURATION",k,i, "=", Node.get_formatted_duration_h(self.travel_t[k, i]))
 
  
-                print("--#####",k, i, self.arrival_t[k, i], Node.get_formatted_time_h(self.arrival_t[k, i]))
+                #print("--#####",k, i, self.arrival_t[k, i], Node.get_formatted_time_h(self.arrival_t[k, i]))
 
                 path[i] = self.get_updated_node2(vehicle, dep_node)
 
@@ -148,23 +149,26 @@ class Response(object):
 
     def calculate_total_profit(self):
         for r in self.attended_requests.values():
-            print("R:", r, " --S:", r.get_vehicle_scheduled_id())
+            # print("R:", r, " --S:", r.get_vehicle_scheduled_id())
             if r.get_vehicle_scheduled_id() != None:
                 vehicle_mode = self.DAO.get_vehicle_dic()[r.get_vehicle_scheduled_id()].get_type()
                 self.profit_reqs += r.get_fare(mode=vehicle_mode)
 
     def print_requests_info(self):
+
         # Calculate overall detour discount
         self.calculate_overall_detour_discount()
-
-        self.mix = defaultdict(int)
+        
+        # Dictionary of vehicles per type
         self.mix_v = defaultdict(set)
+
         # Print requests ordered by pk time
         for r in self.attended_requests.values():
 
             #Get type of vehicle that attended the request
             type_v = self.DAO.get_vehicle_dic()[r.get_vehicle_scheduled_id()].get_type()
-            self.mix[type_v] = self.mix[type_v] + 1
+            
+            # Add vehicle to dic of type
             self.mix_v[type_v].add(r.get_vehicle_scheduled_id())
             
             print("### %r ### (RE: %r -> PK (%s): %r -> DL (%s): %r) ETA: %r || TRAVEL TIME: %r || DELAY: %r || FARE: $%.2f || DISCOUNT: $%.2f || VEHICLE: %r" %
@@ -195,17 +199,24 @@ class Response(object):
                    self.DAO.get_discount_passenger() * r.get_detour_ratio(),
                    r.get_vehicle_scheduled_id())
         
-        print({t_v:vehicles for t_v, vehicles in self.mix_v.items()})
-        self.mix_cost = {t_v:sum([self.DAO.get_vehicle_dic()[v].acquisition_cost for v in vehicles]) for t_v, vehicles in self.mix_v.items()}
-        print(self.mix_cost)
+        # Print vehicle mix: type -> list of vehicles from type
+        pprint.pprint(self.mix_v)
 
+        # Define vehicle mix: type -> #vehicles
+        self.mix_n = {k:len(v) for k,v in self.mix_v.items()}
+
+        # Define mix cost: type -> total cost 
+        self.mix_cost = {t_v:sum([self.DAO.get_vehicle_dic()[v].acquisition_cost for v in vehicles]) for t_v, vehicles in self.mix_v.items()}
+
+        # Log route
         print(self.route_v)
         logger.info(self.route_v)
+
         print("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
         print("OVERALL OCCUPANCY: %.2f || OPERATING VEHICLES: %d [%s] || OF: %.2f { %.2f (REQUESTS REVENUE) -  %.2f (OPERATIONAL COSTS) - [%s] (ACQUISITION) }" %
               (self.overall_occupancy_v,
                self.n_vehicles,
-               " | ".join([k + " = " + str(len(v)) for k,v in self.mix_v.items()]),
+               " | ".join([k + " = " + str(n) for k,n in self.mix_n.items()]),
                round(float(self.profit), 2),
                self.profit_reqs,
                self.overall_operational_cost,
@@ -213,13 +224,14 @@ class Response(object):
                ))
         print("------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
         logger.info("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
-        logger.info("OVERALL OCCUPANCY: %.2f || OPERATING VEHICLES: %d [%s] || PROFIT: %.2f =  %.2f (REQUESTS REVENUE) -  %.2f (OPERATIONAL COSTS)",
+        logger.info("OVERALL OCCUPANCY: %.2f || OPERATING VEHICLES: %d [%s] || OF: %.2f { %.2f (REQUESTS REVENUE) -  %.2f (OPERATIONAL COSTS) - [%s] (ACQUISITION) }",
               self.overall_occupancy_v,
                self.n_vehicles,
-               " | ".join([k + " = " + str(len(v)) for k,v in self.mix_v.items()]),
+               " | ".join([k + " = " + str(n) for k,n in self.mix_n.items()]),
                round(float(self.profit), 2),
                self.profit_reqs,
-               self.overall_operational_cost
+               self.overall_operational_cost,
+               " | ".join([k + " = " + str("{0}".format(v)) for k,v in self.mix_cost.items()]),
                )
         logger.info("------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
         print("-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")

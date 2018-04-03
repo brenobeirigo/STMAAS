@@ -83,7 +83,7 @@ class Request(object):
 
     # Update status of request after reading response from Solver
     def update_status(self, vehicle_scheduled_id, total_travel_time, arrival_t):
-        print("Updating status", self.id, vehicle_scheduled_id, self.originNode)
+        #print("Updating status", self.id, vehicle_scheduled_id, self.originNode)
         self.vehicle_scheduled_id = vehicle_scheduled_id
         self.total_travel_time = total_travel_time  # Not considering boarding delay
         self.arrival_t = arrival_t

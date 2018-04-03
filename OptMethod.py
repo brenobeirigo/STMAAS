@@ -1,3 +1,4 @@
+import config
 from Node import *
 from gurobipy import *
 import pprint
@@ -353,21 +354,21 @@ class SARP_PL(OptMethod):
                             or (k_id, j) not in self.reachable:
                         continue
 
-                    logger.debug("############# FIT (%s) %s ->%s", k, i, j)
+                    #logger.debug("############# FIT (%s) %s ->%s", k, i, j)
                     if not self.vehicle_fit_node_demand(k, i):
                         continue
 
-                    logger.debug("---------FROM FIT %s", i)
+                    #logger.debug("---------FROM FIT %s", i)
                     if not self.vehicle_fit_node_demand(k, j):
                         continue
-                    logger.debug("-----------TO FIT %s", j)
+                    #logger.debug("-----------TO FIT %s", j)
 
-                    logger.debug("%s - %s (%s) [ %s -> %s ]",
-                                 mode,
-                                 k,
-                                 k_id,
-                                 i,
-                                 j)
+                    #logger.debug("%s - %s (%s) [ %s -> %s ]",
+                    #             mode,
+                    #             k,
+                    #             k_id,
+                    #             i,
+                    #             j)
                     latest_i = self.earliest_latest[(mode_vehicle, i)]["latest"]
                     latest_j = self.earliest_latest[(mode_vehicle, j)]["latest"]
                     earliest_i = self.earliest_latest[(mode_vehicle, i)]["earliest"]
@@ -461,11 +462,11 @@ class SARP_PL(OptMethod):
                         for c in self.lockers_v[k]:
                             self.valid_loads.add((c, k, i))
 
-            print("Calculating BIGM dictionary...")
+            #print("Calculating BIGM dictionary...")
             # Define big M
             # BIGM = self.calculate_big_m()
 
-            print("Calculating BIGW dictionary...")
+            #print("Calculating BIGW dictionary...")
             # Define big W
             # BIGW = self.calculate_big_w()
 
@@ -706,13 +707,13 @@ class SARP_PL(OptMethod):
             # C_ij: cost_in_s[i,j] = travel time(s) to go from i to j
             # Function = (B + Y*C_kij)*X_kij
             
-            mode_info = DaoHybrid.v_info_dual["MODE_INFO"]
+            mode_info = config.vehicle_instances["MODE_INFO"]
             m.setObjective(-quicksum(self.vehicles_dic[k].acquisition_cost
                              * ride[k, self.vehicles_dic[k].get_pos().get_id(), j]
                          for k in self.vehicles_dic
                          for j in self.nodes
                          if (k, self.vehicles_dic[k].get_pos().get_id(), j) in self.valid_rides)
-                    +quicksum(d * (fare_locker[c]
+                    + quicksum(d * (fare_locker[c]
                               + fare_locker_dis[c]
                               * self.cost_in_s[i, j, self.vehicles_dic[k].get_type()])
                          * ride[k, i, j]
@@ -724,7 +725,7 @@ class SARP_PL(OptMethod):
                            *self.cost_in_s[i, j, self.vehicles_dic[k].get_type()]
                            * ride[k, i, j]
                            for k, i, j in self.valid_rides),
-                GRB.MINIMIZE)
+                GRB.MAXIMIZE)
 
             """
             -quicksum(mode_info[self.vehicles_dic[k].get_type()]["fixed_cost"]
@@ -762,38 +763,20 @@ class SARP_PL(OptMethod):
 
             #### SHOW RESULTS #################################################
             # m.update()
-            m.write("debug.lp")
+            
             # Store route per vehicle
-
-            ###################################################################
-
-            # MODEL ATTRIBUTES
-            # http://www.gurobi.com/documentation/7.5/refman/model_attributes.html
-            # BEST PRACTICES
-            # http://www.gurobi.com/pdfs/user-events/2016-frankfurt/Best-Practices.pdf
-            # http://www.dcc.fc.up.pt/~jpp/seminars/azores/gurobi-intro.pdf
-            solver_sol={
-                "gap": m.MIPGap,
-                "num_vars": m.NumVars,
-                "num_constrs": m.NumConstrs,
-                "obj_bound": m.ObjBound,
-                "obj_val": m.ObjVal,
-                "node_count": m.NodeCount,
-                "sol_count": m.SolCount,
-                "iter_count": m.IterCount,
-                "runtime": m.Runtime,
-                "preprocessing_t": preprocessing_t
-            }
 
             # Model is unbounded
             if m.status == GRB.Status.UNBOUNDED:
                 print('The model cannot be solved because it is unbounded')
-                exit(0)
+                raise
+                #exit(0)
 
             # If status is optimal
             elif m.status == GRB.Status.OPTIMAL or m.status == GRB.Status.TIME_LIMIT:
                 if m.status == GRB.Status.TIME_LIMIT:
                     print("TIME LIMIT (%d s) RECHEADED." % (self.TIME_LIMIT))
+
 
                 # Get binary variables Xkij
                 var_ride = m.getAttr('x', ride)
@@ -814,6 +797,29 @@ class SARP_PL(OptMethod):
                 print("REQUEST DICTIONARY")
                 pprint.pprint(self.request_dic)
                 print("ALL:", [r.get_id() for r in self.request_dic.values()])
+
+
+                 ###################################################################
+
+                # MODEL ATTRIBUTES
+                # http://www.gurobi.com/documentation/7.5/refman/model_attributes.html
+                # BEST PRACTICES
+                # http://www.gurobi.com/pdfs/user-events/2016-frankfurt/Best-Practices.pdf
+                # http://www.dcc.fc.up.pt/~jpp/seminars/azores/gurobi-intro.pdf
+                solver_sol={
+                    "gap": m.MIPGap,
+                    "num_vars": m.NumVars,
+                    "num_constrs": m.NumConstrs,
+                    "obj_bound": m.ObjBound,
+                    "obj_val": m.ObjVal,
+                    "node_count": m.NodeCount,
+                    "sol_count": m.SolCount,
+                    "iter_count": m.IterCount,
+                    "runtime": m.Runtime,
+                    "preprocessing_t": preprocessing_t
+                }
+
+                
                 # Create DARP answer
                 darp_answer = Response(self.vehicles,
                                        self.request_dic,
@@ -828,16 +834,19 @@ class SARP_PL(OptMethod):
                                        )
                 # Return answer
                 self.response=darp_answer
-
+                print("RESPONSE:", solver_sol)
                 # exit(0)
+                m.write("debug.lp")
 
             elif m.status == GRB.Status.INFEASIBLE:
                 print('Model is infeasible.')
-                exit(0)
+                # raise Exception('Model is infeasible.') 
+                # exit(0)
 
             elif m.status != GRB.Status.INF_OR_UNBD and m.status != GRB.Status.INFEASIBLE:
                 print('Optimization was stopped with status %d' % m.status)
-                exit(0)
+                # raise Exception('Model is infeasible.') 
+                #exit(0)
 
             # IRREDUCIBLE INCONSISTENT SUBSYSTEM (IIS).
             # An IIS is a subset of the constraints and variable bounds
@@ -901,13 +910,16 @@ class SARP_PL(OptMethod):
             for sv in slacks:
                 if sv.X > 1e-6:
                     print('%s = %g' % (sv.VarName, sv.X))
-        """
+            """
+            
+
         except GurobiError:
             print('Error reported:', GurobiError.message)
-
-        # Reset indices of nodes
-        Node.reset_nodes_ids()
-        Vehicle.reset_vehicles_ids()
+            raise
+        finally:
+            # Reset indices of nodes
+            Node.reset_nodes_ids()
+            Vehicle.reset_vehicles_ids()
 
     ##########################################################################
     ##########################################################################

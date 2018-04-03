@@ -10,7 +10,7 @@ import time
 from collections import OrderedDict
 class Vehicle:
     vehicle_modes = ["autonomous", "conventional", "dual"]
-    vehicle_modes_short = ["A", "C", "D"]
+    
     start_revealing = '2017-10-10 00:00:00'
     start_revealing_t = datetime.strptime('2017-10-10 00:00:00', '%Y-%m-%d %H:%M:%S')
     start_revealing_tstamp = start_revealing_t.timestamp()
