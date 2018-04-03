@@ -142,9 +142,10 @@ class GenTestCase:
             labels = list()
             values = list()
 
+            print("compartment:", compartments)
             for c in compartments[k]:
-                labels.append(c.get_label())
-                values.append(c.get_amount())
+                labels.append(c["label_comp"])
+                values.append(c["number_comp"])
 
             name_instance = "{0:02}_{1}.csv".format(v, k)
 
