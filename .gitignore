@@ -2,7 +2,7 @@
 *.graphml
 
 #ignore map distances
-*.json
+instances/hybrid/networks/*.json
 
 #ignore python cache
 *.pyc

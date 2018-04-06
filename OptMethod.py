@@ -521,13 +521,13 @@ class SARP_PL(OptMethod):
             """
 
             print("    # FLOW_VEH_PK")
-            # (IN_OUT_PK) = self.vehicles enter and leave pk/dl nodes
+            # (IN_OUT_PK) = self.vehicles enter and leave pk nodes
             m.addConstrs((ride.sum(k, '*', i) == ride.sum(k, i, '*')
                           for i in self.pk_points
                           for k in self.vehicles), name="FLOW_VEH_PK")
 
             print("    # FLOW_VEH_DL")
-            # (IN_OUT) = self.vehicles enter and leave pk/dl nodes
+            # (IN_OUT) = self.vehicles enter and leave/stay dl nodes
             m.addConstrs((ride.sum(k, '*', i) >= ride.sum(k, i, '*')
                           for i in self.dl_points
                           for k in self.vehicles), name="FLOW_VEH_DL")
@@ -568,7 +568,7 @@ class SARP_PL(OptMethod):
 
             print("    # RIDE_3")
             # (RIDE_3) = Ride time from i to j is >=
-            # arrival_time_j - (arrival_time_i + self.service_time_i + self.service_time_j)
+            # arrival_time_j - (arrival_time_i + self.service_time_i)
             m.addConstrs((travel_t[k, i] ==
                           arrival_t[k, j] -
                           (arrival_t[k, i] +
