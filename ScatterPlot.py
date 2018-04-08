@@ -3,7 +3,7 @@ class ScatterPlot:
     ##########################################################################
     ########################### PLOTTING WITH MATPLOTLIB #####################
     ##########################################################################
-    # 1 - Get a scatter plot from coordinates
+    # 1 - Get a scatter plot from model.Coordinates
     def create_scatter_plot(self):
         nodes_dic = self.DAO.get_nodes_dic()
         # Create list of x coordinates

@@ -1,0 +1,89 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+        "label": "main_dual_mode_HOME",
+        "type": "shell",
+        "command": "python",
+        "args": ["main_dual_mode.py"],
+        "group": {
+          "kind": "build",
+          "isDefault": false
+        },
+        "problemMatcher": ["$eslint-compact"]
+      },
+      {
+        "label": "gen_test_case_HOME",
+        "type": "shell",
+        "command": "python",
+        "args": ["GenTestCase.py"],
+        "group": {
+          "kind": "build",
+          "isDefault": false
+        },
+        "problemMatcher": ["$eslint-compact"]
+      },
+      {
+        "label": "test_network_HOME",
+        "type": "shell",
+        "command": "python",
+        "args": ["Network.py"],
+        "group": {
+          "kind": "build",
+          "isDefault": false
+        },
+        "problemMatcher": ["$eslint-compact"]
+      },
+    {
+      "label": "start_opt",
+      "type": "shell",
+      "command":
+        "C:\\Users\\bbeirigo\\AppData\\Local\\Continuum\\anaconda3\\python.exe",
+      "args": ["main.py"],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "create_test_case",
+      "command":
+        "C:\\Users\\bbeirigo\\AppData\\Local\\Continuum\\anaconda3\\python.exe",
+      "args": ["GenTestCase.py"],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": ["$eslint-compact"],
+      "presentation": {
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "test_network",
+      "type": "shell",
+      "command":
+        "C:\\Users\\bbeirigo\\AppData\\Local\\Continuum\\anaconda3\\python.exe",
+      "args": ["GenTestCase.py"],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": ["$eslint-compact"]
+    },
+    {
+      "label": "main_dual_mode",
+      "type": "shell",
+      "command":
+        "C:\\Users\\bbeirigo\\AppData\\Local\\Continuum\\anaconda3\\python.exe",
+      "args": ["main_dual_mode.py"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$eslint-compact"]
+    }
+  ]
+}
