@@ -14,7 +14,7 @@ instances/hybrid/networks/*.json
 *.png
 
 #ignore MILP debug
-*.debug.lp
+*.lp
 
 
 
