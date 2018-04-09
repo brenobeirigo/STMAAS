@@ -127,9 +127,7 @@
             }
         },
         "TIME_HORIZON": {
-            "05min": 300,
-            "10min": 600,
-            "20min": 1200
+            "01min": 60
         },
         "INTERVAL": {
             "00-01min": [
@@ -207,6 +205,6 @@
             }
         }
     },
-    "result_path": "C:/Users/breno/OneDrive/Phd_TU/PROJECTS/STMAASSL2018/STMAASSL/output/results.csv",
+    "result_path": "./output/results_TUDSRV.csv",
     "generate_test_cases": true
 }
