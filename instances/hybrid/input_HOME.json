@@ -22,9 +22,7 @@
     },
     "request": {
         "#REQUESTS": [
-            10,
-            20,
-            40
+            10
         ],
         "DEMAND_DIST_MODE": {
             "AV": [
