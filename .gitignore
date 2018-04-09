@@ -1,5 +1,5 @@
 # ignore maps data
-*.graphml
+# *.graphml
 
 #ignore map distances
 instances/hybrid/networks/*.json
