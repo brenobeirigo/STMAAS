@@ -206,5 +206,5 @@
         }
     },
     "result_path": "./output/results_UHH.csv",
-    "generate_test_cases": false
+    "generate_test_cases": true
 }
