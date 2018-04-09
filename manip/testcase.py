@@ -24,7 +24,7 @@ def get_tested_cases(path):
                 # For each data row
                 for row in reader:
                     # Get instance identity
-                    splitted = row[0:13]
+                    splitted = row[0:14]
                     test_case_name = "_".join(splitted)
                     tested_cases.add(test_case_name)
             return tested_cases
@@ -32,14 +32,16 @@ def get_tested_cases(path):
         except IOError as e:
             print(e)
 
-def get_test_case_info(n, v, r):
+def get_test_case_info(s, n, v, r):
     test_case = dict()
     # Singular parameters of an instance
+    test_case["s_params"] = s
     test_case["n_params"] = str(n).split("_")
     test_case["v_params"] = str(v).split("_")
     test_case["r_params"] = str(r).split("_")
+    test_case["s"] = s
     test_case["n"] = n
     test_case["v"] = v
     test_case["r"] = r
-    test_case["id"] = n + "_" + v + "_" + r
+    test_case["id"] = n + "_" + s + "_" + v + "_" + r
     return test_case

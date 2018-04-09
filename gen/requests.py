@@ -1,4 +1,4 @@
-from config import req_horizon, start_revealing, request_tuples, req_demand_dist_mode, req_demand_limit, req_interval, req_n_requests, req_sl_share, req_trips_distance
+from config import network_tuples, instance_path_network, instance_path_request, req_horizon, start_revealing, request_tuples, req_demand_dist_mode, req_demand_limit, req_interval, req_n_requests, req_sl_share, req_trips_distance
 from config import os
 from gen.map import load_dist_dic, load_network, literal_eval, choice
 from datetime import datetime, timedelta
@@ -128,7 +128,7 @@ def genRequests(instance_path):
                                         print(csv_data)
                                     # print(csv_response)
 
-def genRequests2(path_requests, network_path):
+def gen_r_instances_in_network(path_requests, network_path):
     print("Generating dual-mode demand...")
 
     # Set of test cases to be generated
@@ -138,7 +138,7 @@ def genRequests2(path_requests, network_path):
     # Example of request name: 10_D1_S1_05-10min-0.5km-1km_A5
     for req_name in request_tuples:
         req_path =  path_requests +"/" + req_name +".csv"
-        print("Checking request ", req_path)
+        # print("Checking request ", req_path)
         if not os.path.isfile(req_path):
             test_case = req_name.split("_")
             gen_set.add((int(test_case[0]),
@@ -345,3 +345,17 @@ def gen_od_data(**args):
             print(req)
             list_of_requests.append(req)
     return list_of_requests
+
+def gen_all():
+    for nw in network_tuples:
+
+        network_path = instance_path_network + "/" + nw
+        
+        print("   Generating requests for network {0}...".format(nw + ".graphml"))
+        # Store request data for network nw
+        folder_r_nw = instance_path_request + "/" + nw
+        if not os.path.exists(folder_r_nw):
+            os.makedirs(folder_r_nw)
+
+        gen_r_instances_in_network(path_requests = folder_r_nw,
+                                network_path = network_path)

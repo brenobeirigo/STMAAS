@@ -136,8 +136,6 @@ class OptMethod:
 
         self.vehicle_nodes = self.DAO.get_vehicles_nodes()
 
-        print("TESTEDaaa--", len(self.vehicle_nodes))
-
     # Return TRUE if vehicle k can fully attend demands of nodes i and j
     def vehicle_fit_node_demand(self, k, i):
         logger.debug("Checking match V{0} and R{1}...".format(k, i))

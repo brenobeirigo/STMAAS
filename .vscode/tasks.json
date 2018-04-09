@@ -7,7 +7,7 @@
         "label": "main_dual_mode_HOME",
         "type": "shell",
         "command": "python",
-        "args": ["main_dual_mode.py"],
+        "args": ["main.py"],
         "group": {
           "kind": "build",
           "isDefault": false
@@ -78,7 +78,7 @@
       "type": "shell",
       "command":
         "C:\\Users\\bbeirigo\\AppData\\Local\\Continuum\\anaconda3\\python.exe",
-      "args": ["main_dual_mode.py"],
+      "args": ["main.py"],
       "group": {
         "kind": "build",
         "isDefault": true

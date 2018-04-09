@@ -145,7 +145,8 @@ class Response(object):
                     self.attended_requests[i] = req
         
         logger.info("SELECTED REQUESTS: %s", str(self.attended_requests.keys()))
-        print("SELECTED REQUESTS: ", str(self.attended_requests.keys()))
+        
+        print("SELECTED REQUESTS: ", str(self.attended_requests.keys()), len(self.attended_requests))
 
     def calculate_total_profit(self):
         for r in self.attended_requests.values():

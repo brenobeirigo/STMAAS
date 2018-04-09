@@ -8,14 +8,14 @@ from model.Node import *
 from decimal import *
 import pprint
 import copy
-from URLHelpers import *
+from manip.URLHelpers import *
 import json
 import csv
 import time
 from random import *
 from datetime import datetime, date, time, timedelta
 from collections import OrderedDict
-
+import pprint
 import sys
 import logging
 logger = logging.getLogger("main.dao_hybrid")
@@ -30,28 +30,6 @@ class Dao(object):
     dist_dic = {}
     new_data = False
     cont = 0
-
-
-
-    code_mode = {"A": "autonomous", "C": "conventional", "D": "dual"}
-    mode_code = {"autonomous": "A", "conventional": "C", "dual": "D"}
-
-    """v_info_dual = OrderedDict({"#VEHICLES": [10, 20],
-                               "COMPARTMENTS DIV.": {"A5": [CompartmentHuman("A", 5)]},
-                               "MODE_INFO":{"C1":{"autonomous":{"fixed_cost":20000, "var_cost":0.001},
-                                                        "dual":{"fixed_cost":15000, "var_cost":0.003},
-                                                "conventional":{"fixed_cost":10000, "var_cost":0.003}},
-                                            "C2":{"autonomous":{"fixed_cost":10000, "var_cost":0.001},
-                                                        "dual":{"fixed_cost":10000, "var_cost":0.003},
-                                                "conventional":{"fixed_cost":10000, "var_cost":0.003}},
-                                            "C3":{"autonomous":{"fixed_cost":20000, "var_cost":0.001},
-                                                        "dual":{"fixed_cost":15000, "var_cost":0.003},
-                                                "conventional":{"fixed_cost":10000, "var_cost":0.003}}
-                                          }})"""
-
-    """"SL_SHARE": {"S1":{"C":{"request_share":0.2, "overall_sl":0.7,"pk_delay":300, "trip_delay":600},
-                                             "B":{"request_share":0.6, "overall_sl":0.8,"pk_delay":180, "trip_delay":300},
-                                             "A":{"request_share":0.2, "overall_sl":0.9,"pk_delay":120, "trip_delay":0}}},"""
 
     # https://developers.google.com/maps/documentation/utilities/polylineutility
     # https://www.mapbox.com/api-documentation/#waypoint-object
@@ -601,16 +579,15 @@ class DaoHybrid(Dao):
                                                      ) if dic_capacities[c] > 0},
                                                      None,
                                                      network_node_id=id_origin_node)
-
+                
                 veh = Vehicle(av_id,
                               autonomy,
                               initial_location,
                               dic_capacities,
                               available_at,
                               type_vehicle=type_vehicle,
-                              acquisition_cost=config.vehicle_instances[
-                                  "MODE_INFO"][type_vehicle]["fixed_cost"],
-                              operation_cost_s=config.vehicle_instances["MODE_INFO"][type_vehicle]["var_cost"])
+                              acquisition_cost=config.veh_price_scenarios[self.scenario][type_vehicle]["fixed_cost"],
+                              operation_cost_s=config.veh_price_scenarios[self.scenario][type_vehicle]["var_cost"])
 
                 # Add vehicle in list
                 vehicle_list.append(veh)
@@ -624,7 +601,8 @@ class DaoHybrid(Dao):
         return self.pd_network_tuples
 
     def __init__(self,  test_case):
-
+        
+        self.scenario = test_case["s"]
         self.network_path = test_case["n"]
         print(" NETWORK PATH:", self.network_path)
         self.requests_list_path = config.instance_path_request + "/" + test_case["n"] + "/" + test_case["r"] + ".csv"

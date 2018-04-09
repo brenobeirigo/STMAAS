@@ -1,12 +1,15 @@
-from config import vehicle_tuples
+from config import start_revealing, network_tuples, instance_path_network, instance_path_vehicle, vehicle_tuples, vehicle_modes, vehicle_instances, mode_code
 from config import os
+import gen.map as mp
+from ast import literal_eval
+from random import choice
 
-def genVehicles2(path_vehicles, network_path):
+def gen_v_instances_in_network(path_vehicles, network_path):
 
     print("Creating vehicle instances...",  vehicle_tuples)
 
-    min_distance = 0
-    max_distance = 100000
+    # Heterogeneus and regular vehicles
+    compartments = vehicle_instances["COMPARTMENTS DIV."]
 
     # Set of test cases to be generated
     gen_set = set()
@@ -44,13 +47,13 @@ def genVehicles2(path_vehicles, network_path):
 
         for e in list_of_vehicles_origins:
 
-            str_id = k + "_" + DaoHybrid.mode_code[e["type"]]
+            str_id = k + "_" + mode_code[e["type"]]
 
             #print("Generating vehicles:", str_id)
 
             loads_v = ",".join([str(v) for v in values])
 
-            csv_response = "{0},{1},{2},{3:.6f},{4:.6f},{5},{6},{7}\n".format(str_id, e["type"], DaoHybrid.start_revealing, float(
+            csv_response = "{0},{1},{2},{3:.6f},{4:.6f},{5},{6},{7}\n".format(str_id, e["type"], start_revealing, float(
                 e["origin_longitude"]), float(e["origin_latitude"]), e['origin_id'], 8, loads_v )
             #print(csv_response)
 
@@ -178,10 +181,9 @@ def gen_vehicle_data(**args):
     network_path = args["network_path"]
         
     # Load network related data
-    network = load_network(filename=network_path, folder=".")
+    network = mp.load_network(filename=network_path, folder=".")
     #dist = create_distance_data(network)
-    dist = load_dist_dic(network_path)
-
+    dist = mp.load_dist_dic(network_path)
     mode_nodes = dict(literal_eval(network.graph["mode_nodes"]))
     origin_nodes = dict()
     for mode in vehicle_modes:
@@ -216,3 +218,18 @@ def gen_vehicle_data(**args):
             print(o)
             list_of_vehicles.append(o)
     return list_of_vehicles
+
+def gen_all():
+
+    for nw in network_tuples:
+        
+        network_path = instance_path_network + "/" + nw
+
+        print("   Generating vehicles for network {0}...".format(nw + ".graphml"))
+        # Store vehicle data for network nw
+        folder_v_nw = instance_path_vehicle+ "/" + nw
+        if not os.path.exists(folder_v_nw):
+            os.makedirs(folder_v_nw)
+
+        gen_v_instances_in_network(path_vehicles = folder_v_nw,
+                                network_path = network_path)

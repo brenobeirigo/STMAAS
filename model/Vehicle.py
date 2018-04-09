@@ -9,12 +9,6 @@ import json
 import time
 from collections import OrderedDict
 class Vehicle:
-    vehicle_modes = ["autonomous", "conventional", "dual"]
-    
-    start_revealing = '2017-10-10 00:00:00'
-    start_revealing_t = datetime.strptime('2017-10-10 00:00:00', '%Y-%m-%d %H:%M:%S')
-    start_revealing_tstamp = start_revealing_t.timestamp()
-
     color = {}
     color[0] = "(60, 180, 75)"
     color[1] = "(255, 225, 25)"

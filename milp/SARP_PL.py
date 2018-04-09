@@ -19,6 +19,9 @@ class SARP_PL(OptMethod):
         # Start time - loading model info
         t1 = datetime.now()
 
+        deny_service = True
+        acquisition_cost_fsm = False
+
         try:
 
             valid_rides = self.get_valid_rides()
@@ -49,14 +52,6 @@ class SARP_PL(OptMethod):
                                   lb=0,
                                   name="u")
 
-            #print("Calculating BIGM dictionary...")
-            # Define big M
-            # BIGM = self.calculate_big_m()
-
-            #print("Calculating BIGW dictionary...")
-            # Define big W
-            # BIGW = self.calculate_big_w()
-
             print("Setting constraints...")
             logger.debug(
                 "############################# VALID LOADS ##########################")
@@ -77,13 +72,14 @@ class SARP_PL(OptMethod):
             #### ROUTING CONSTRAINTS ##########################################
             print("    # MAX_1_OUT")
             # (ONLY_PK) = Max. one outbound arc in pickup nodes
-            m.addConstrs((ride.sum('*', i, '*') <= 1
-                          for i in self.pd_nodes), "MAX_1_OUT")
+            m.addConstrs((ride.sum('*', i, '*') <= 1 for i in self.pd_nodes), "MAX_1_OUT")
 
             print("    # ALL_REQ")
-            # (ALL_REQ) = All requests are attended
-            m.addConstrs((ride.sum('*', i, '*') == 1
-                          for i in self.pk_points), "ALL_REQ")
+            # (ALL_REQ) = All requests are attended?
+            if deny_service:
+                m.addConstrs((ride.sum('*', i, '*') <= 1 for i in self.pk_points), "DENY_REQ")
+            else:
+                m.addConstrs((ride.sum('*', i, '*') == 1 for i in self.pk_points), "ALL_REQ")
 
             print("    # ONLY_1_IN")
             # (ONLY_DL) = There is only one vehicle arriving at a pk/dl point
@@ -164,22 +160,6 @@ class SARP_PL(OptMethod):
                           for i, j in self.pd_tuples
                           if (k, i, j) in valid_rides), "RIDE_3")
 
-            """print("Separated:", datetime.now()-r1)
-            r2 = datetime.now()
-            for k in self.vehicles:
-                for i, j in self.pd_tuples:
-                    if (k, i, j) in valid_rides:
-                        m.addConstr((travel_t[k, i] ==
-                          arrival_t[k, j] -
-                          (arrival_t[k, i] +
-                           self.nodes_dic[i].get_service_t())), "RIDE_32[%s,%s,%s]" % (k, i, j))
-                        
-                        m.addConstr((travel_t[k, i] <=
-                          self.times[i, j, self.vehicles_dic[k].get_type(
-                          )] + self.max_delivery_delay[i]), "RIDE_22[%s,%s,%s]" % (k, i, j))
-
-                        m.addConstr((travel_t[k, i] >= self.times[i, j, self.vehicles_dic[k].get_type()]), "RIDE_12[%s,%s,%s]" % (k, i, j))
-            print("together:", datetime.now() - r2)"""
             ### TIME WINDOW CONSTRAINTS #######################################
             print("    # EARL")
             #>>>>>> TIME WINDOW FOR PICKUP
@@ -294,33 +274,38 @@ class SARP_PL(OptMethod):
             # C_ij: cost_in_s[i,j] = travel time(s) to go from i to j
             # Function = (B + Y*C_kij)*X_kij
 
-            mode_info = config.vehicle_instances["MODE_INFO"]
-            m.setObjective(-quicksum(self.vehicles_dic[k].acquisition_cost
-                                     * ride[k, self.vehicles_dic[k].get_pos().get_id(), j]
-                                     for k in self.vehicles_dic
-                                     for j in self.nodes
-                                     if (k, self.vehicles_dic[k].get_pos().get_id(), j) in valid_rides)
-                           + quicksum(d * (fare_locker[c]
-                                           + fare_locker_dis[c]
-                                           * self.cost_in_s[i, j, self.vehicles_dic[k].get_type()])
-                                      * ride[k, i, j]
-                                      for k in self.vehicles_dic
-                                      for i, j in self.pd_pairs.items()
-                                      if (k, i) in valid_visits and (k, j) in valid_visits
-                                      for c, d in self.nodes_dic[i].get_demand_short().items())
-                           - quicksum(self.vehicles_dic[k].operation_cost_s
-                                      * self.cost_in_s[i, j, self.vehicles_dic[k].get_type()]
-                                      * ride[k, i, j]
-                                      for k, i, j in valid_rides),
-                           GRB.MAXIMIZE)
+            # Is acquisition cost considered
+            acquistion_cost = 0
+            if acquisition_cost_fsm:
+                # Acquisition cost of vehicles (Fleet size and mix)
+                acquistion_cost = quicksum(self.vehicles_dic[k].acquisition_cost
+                                    * ride[k, self.vehicles_dic[k].get_pos().get_id(), j]
+                                    for k in self.vehicles_dic
+                                    for j in self.nodes
+                                    if (k, self.vehicles_dic[k].get_pos().get_id(), j) in valid_rides)
+            
+            # Fixed fare + varied fare
+            revenue = quicksum(d * (fare_locker[c]
+                                    + fare_locker_dis[c]
+                                    * self.cost_in_s[i, j, self.vehicles_dic[k].get_type()])
+                                    * ride[k, i, j]
+                                    for k in self.vehicles_dic
+                                    for i, j in self.pd_pairs.items()
+                                    if (k, i) in valid_visits and (k, j) in valid_visits
+                                    for c, d in self.nodes_dic[i].get_demand_short().items())
+            
+            # Total operational cost
+            operational_cost = quicksum(self.vehicles_dic[k].operation_cost_s
+                                    * self.cost_in_s[i, j, self.vehicles_dic[k].get_type()]
+                                    * ride[k, i, j]
+                                    for k, i, j in valid_rides)
+            
+            # OF with acquisition cost
+            # m.setObjective(revenue -operational_cost -acquistion_cost, GRB.MAXIMIZE)
 
-            """
-            -quicksum(mode_info[self.vehicles_dic[k].get_type()]["fixed_cost"]
-                             * ride[k, self.vehicles_dic[k].get_pos().get_id(), j]
-                         for k in self.vehicles_dic
-                         for j in self.nodes
-                         if (k, self.vehicles_dic[k].get_pos().get_id(), j) in valid_rides)
-            """
+            # OF profit
+            m.setObjective(revenue -operational_cost -acquistion_cost, GRB.MAXIMIZE)
+
             logger.debug(
                 "########################## COSTS #################################")
             for k, i, j in valid_rides:

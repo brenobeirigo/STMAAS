@@ -1,12 +1,13 @@
-from manip import json as manip_json
+from manip import io as manip_json
 from manip.filename import *
 from manip.testcase import *
 import os
 from datetime import datetime
 
+
+# Firt time on system
 start_revealing = '2017-10-10 00:00'
-start_revealing_t = datetime.strptime(
-    '2017-10-10 00:00:00', '%Y-%m-%d %H:%M:%S')
+start_revealing_t = datetime.strptime('2017-10-10 00:00:00', '%Y-%m-%d %H:%M:%S')
 start_revealing_tstamp = start_revealing_t.timestamp()
 
 # Put this data into the files, separation per locker size
@@ -53,19 +54,26 @@ req_horizon = request_instances["TIME_HORIZON"]
 req_demand_dist_mode = request_instances["DEMAND_DIST_MODE"]
 req_demand_limit =  request_instances["DEMAND_LIMIT"]
 
+veh_price_scenarios = vehicle_instances["PRICE"]
+
 all_result_path = instances_dic["result_path"]
 
 # LABELS
-labels_networks = list(network_instances.keys())[0:-2]
-labels_vehicles = list(vehicle_instances.keys())[0:2]
-labels_requests = list(request_instances.keys())
+labels_networks = ["REGION", "SUBNETWORK_TYPES", "SPREAD", "#ZONES", "#TEST"]
+labels_vehicles = ["PRICE", "#VEHICLES", "COMPARTMENTS DIV."]
+labels_requests = ["#REQUESTS", "DEMAND_DIST_MODE", "SL_SHARE", "TIME_HORIZON", "TRIPS_DIST", "DEMAND_LIMIT"]
+
+
 
 # from model.VehicleS
 vehicle_modes_short = ["A", "C", "D"]
+vehicle_modes = ["autonomous", "conventional", "dual"]
+code_mode = {"A": "autonomous", "C": "conventional", "D": "dual"}
+mode_code = {"autonomous": "A", "conventional": "C", "dual": "D"}
 
 
-
-labels_sol = ["OVERALL_OCCUPANCY",
+labels_sol = ["#ATTENDED",
+              "OVERALL_OCCUPANCY",
               "OPERATING_VEHICLES",
               "PROFIT",
               "REQUESTS_REVENUE",
@@ -87,12 +95,15 @@ labels_sol = ["OVERALL_OCCUPANCY",
               "LOG"]
 
 # HEADER JSON OUTPUT
-labels = labels_networks+labels_vehicles + labels_requests + vehicle_modes_short + labels_sol
+labels = labels_networks + labels_vehicles  + labels_requests + vehicle_modes_short + labels_sol
 
+print("LABELS:", labels)
 # Should test cases be generated?
 gen_test_cases = instances_dic["generate_test_cases"]
 
 discount_passenger_s = 0.002
+
+price_scenario_tuples = [s for s in veh_price_scenarios]
 
 # Vary the vehicles attributes
 # v ------- e.g. [10, 20, 30] (number of vehicles)
@@ -114,7 +125,6 @@ vehicle_tuples = ["{0:02}_{1}".format(v, c)
                     for v in vehicle_instances["#VEHICLES"]
                     for c in vehicle_instances["COMPARTMENTS DIV."]]
 
-
 # Vary the requests attributes
 # r -------- e.g. [30, 40, 50] (number of requests)
 # td ------- e.g. ["0.5km-1km", "5km-10km"] (min-max distance between OD points)
@@ -131,11 +141,12 @@ request_tuples = ["{0:02}_{1}_{2}_{3}_{4}_{5}".format(r, d_mode, sl, ibr, td, dl
     for dl in request_instances["DEMAND_LIMIT"]]
 
 
-all_tests = set([(path_instance_n, path_instance_v, path_instance_r)
-                for path_instance_n in network_tuples
-                for path_instance_v in vehicle_tuples
-                for path_instance_r in request_tuples
-                    if int(path_instance_v.split("_")[0])<=int(path_instance_r.split("_")[0])])
+all_tests_dic= {"{}_{}_{}_{}".format(n, s, v, r):(n, s, v, r)
+                for s in price_scenario_tuples
+                for n in network_tuples
+                for v in vehicle_tuples
+                for r in request_tuples
+                if int(v.split("_")[0])<=int(r.split("_")[0])}
 
 if not os.path.exists(all_result_path):
     # Does not exist OR
@@ -144,6 +155,9 @@ if not os.path.exists(all_result_path):
 
 tested_cases = get_tested_cases(all_result_path)
 
+remaining_tests = set([all_tests_dic[k] for k in all_tests_dic if k not in tested_cases])
+
+print(len(all_tests_dic), len(tested_cases), len(remaining_tests))
 
 # NETWORK DATA
 
@@ -153,4 +167,3 @@ show_img = False
 dpi_img = 300
 root = "data/network/"
 subfolder = "network/"
-instance_path_network = "instances/hybrid/networks/"
