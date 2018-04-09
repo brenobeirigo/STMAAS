@@ -7,7 +7,7 @@ instances/hybrid/networks/*.json
 #ignore python cache
 *.pyc
 
-#ignore python cache
+#ignore gurobi/model logs
 *.log
 
 #ignore network images

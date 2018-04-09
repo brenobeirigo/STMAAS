@@ -1,0 +1,212 @@
+{
+    "network": {
+        "REGION": [
+            "Delft, The Netherlands"
+        ],
+        "SUBNETWORK_TYPES": [
+            "zones"
+        ],
+        "SPREAD": [
+            0.1,
+            0.25,
+            0.5
+        ],
+        "#ZONES": [
+            1,
+            2,
+            4
+        ],
+        "#TEST": 5,
+        "SAVE_FIG": true,
+        "SHOW_SEEDS": true
+    },
+    "request": {
+        "#REQUESTS": [
+            10,
+            20,
+            40
+        ],
+        "DEMAND_DIST_MODE": {
+            "AV": [
+                {
+                    "from": "autonomous",
+                    "share": 0.3,
+                    "to": "autonomous"
+                },
+                {
+                    "from": "autonomous",
+                    "share": 0.2,
+                    "to": "conventional"
+                },
+                {
+                    "from": "conventional",
+                    "share": 0.2,
+                    "to": "autonomous"
+                },
+                {
+                    "from": "conventional",
+                    "share": 0.3,
+                    "to": "conventional"
+                }
+            ],
+            "HI": [
+                {
+                    "from": "autonomous",
+                    "share": 0.4,
+                    "to": "autonomous"
+                },
+                {
+                    "from": "autonomous",
+                    "share": 0.1,
+                    "to": "conventional"
+                },
+                {
+                    "from": "conventional",
+                    "share": 0.1,
+                    "to": "autonomous"
+                },
+                {
+                    "from": "conventional",
+                    "share": 0.4,
+                    "to": "conventional"
+                }
+            ],
+            "LO": [
+                {
+                    "from": "autonomous",
+                    "share": 0.1,
+                    "to": "autonomous"
+                },
+                {
+                    "from": "autonomous",
+                    "share": 0.4,
+                    "to": "conventional"
+                },
+                {
+                    "from": "conventional",
+                    "share": 0.4,
+                    "to": "autonomous"
+                },
+                {
+                    "from": "conventional",
+                    "share": 0.1,
+                    "to": "conventional"
+                }
+            ]
+        },
+        "SL_SHARE": {
+            "S1": {
+                "A": {
+                    "overall_sl": 0.9,
+                    "pk_delay": 300,
+                    "request_share": 0.2,
+                    "trip_delay": 600
+                },
+                "B": {
+                    "overall_sl": 0.8,
+                    "pk_delay": 300,
+                    "request_share": 0.6,
+                    "trip_delay": 600
+                },
+                "C": {
+                    "overall_sl": 0.7,
+                    "pk_delay": 300,
+                    "request_share": 0.2,
+                    "trip_delay": 600
+                }
+            }
+        },
+        "DEMAND_LIMIT": {
+            "A5": {
+                "H": [
+                    {
+                        "label_comp": "A",
+                        "number_comp": 5
+                    }
+                ]
+            }
+        },
+        "TIME_HORIZON": {
+            "05min": 300,
+            "10min": 600,
+            "20min": 1200
+        },
+        "INTERVAL": {
+            "00-01min": [
+                0,
+                60
+            ],
+            "05-10min": [
+                300,
+                600
+            ]
+        },
+        "TRIPS_DIST": {
+            "0.1km-10km": [
+                100,
+                10000
+            ]
+        }
+    },
+    "vehicle": {
+        "#VEHICLES": [
+            5,
+            10,
+            20
+        ],
+        "COMPARTMENTS DIV.": {
+            "A5": [
+                {
+                    "label_comp": "A",
+                    "number_comp": 5
+                }
+            ]
+        },
+        "PRICE": {
+            "S01": {
+                "autonomous": {
+                    "fixed_cost": 20000,
+                    "var_cost": 0.004
+                },
+                "conventional": {
+                    "fixed_cost": 10000,
+                    "var_cost": 0.002
+                },
+                "dual": {
+                    "fixed_cost": 25000,
+                    "var_cost": 0.005
+                }
+            },
+            "S02": {
+                "autonomous": {
+                    "fixed_cost": 20000,
+                    "var_cost": 0.003
+                },
+                "conventional": {
+                    "fixed_cost": 10000,
+                    "var_cost": 0.002
+                },
+                "dual": {
+                    "fixed_cost": 25000,
+                    "var_cost": 0.004
+                }
+            },
+            "S03": {
+                "autonomous": {
+                    "fixed_cost": 20000,
+                    "var_cost": 0.002
+                },
+                "conventional": {
+                    "fixed_cost": 10000,
+                    "var_cost": 0.002
+                },
+                "dual": {
+                    "fixed_cost": 25000,
+                    "var_cost": 0.003
+                }
+            }
+        }
+    },
+    "result_path": "C:/Users/breno/OneDrive/Phd_TU/PROJECTS/STMAASSL2018/STMAASSL/output/results.csv",
+    "generate_test_cases": true
+}

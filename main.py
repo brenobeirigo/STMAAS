@@ -139,7 +139,6 @@ for n, s, v, r in config.all_tests_dic.values():
     print(test_case["id"])
     # Only not tested instances are saved
     if test_case["id"] in config.tested_cases:
-        n_tested += 1
         print("TESTED: ", test_case["id"])
         continue
 
@@ -190,12 +189,14 @@ for n, s, v, r in config.all_tests_dic.values():
 
         # Build response line
         line = get_result_line(test_case, response, save_mode="excel")
-        print("RUNTIME:", response.get_solver_sol()[
-              "runtime"], "----->>>>> PROGRESS {0}/{1}({2:.2f}%)".format(n_tested, total_tested, n_tested / total_tested))
-
+        
     # Write line in the result file
     with open(config.all_result_path, 'a') as file:
         file.write("\n" + line)
+
+    n_tested = n_tested + 1
+    print("RUNTIME:", response.get_solver_sol()[
+              "runtime"], "----->>>>> PROGRESS {0}/{1}({2:.2f}%)".format(n_tested, total_tested, n_tested / total_tested))
 
     # Close log file
     lio.close_logs(logger)
