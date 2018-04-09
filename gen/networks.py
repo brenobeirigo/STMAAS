@@ -1,5 +1,6 @@
-from config import network_tuples,network_instances
+from config import network_tuples, network_instances, root, instance_path_network
 from gen.map import *
+from manip.filename import get_file_name
 
 
 def get_network_tuples_not_tested():
@@ -25,10 +26,10 @@ def get_network_tuples_not_tested():
 
 
 def gen_all():
-    
+
     save_fig = network_instances["SAVE_FIG"]
     show_seeds = network_instances["SHOW_SEEDS"]
-    
+
     print("Generating network instances...")
     not_tested = get_network_tuples_not_tested()
     # For all networks not yet tested
@@ -36,6 +37,25 @@ def gen_all():
         print("GENERATING: ", reg, sub, spr, zon, t)
 
         file_name = get_file_name(reg)
+
+        # File name
+        graph_file_name = get_instance_file_name(sub, t, file_name, spr, zon)
+
+        if os.path.exists(instance_path_network + "{}.graphml".format(graph_file_name)):
+            print(graph_file_name, "already exists! Generating distances...")
+            G = load_network(filename=graph_file_name,
+                             folder=instance_path_network)
+            save_graph_data(G,
+                            file_name=graph_file_name,
+                            path=instance_path_network,
+                            save_graph=False)
+            save_pic(network=G,
+                     save_fig=save_fig,
+                     show_seeds=show_seeds,
+                     file_name=graph_file_name)
+            continue
+
+            print(" NAO GERA BURRO")
         #G = download_network(region=region, network_type="drive")
         # Loading network
         # G = load_network("delft_the_netherlands.graphml")
@@ -100,4 +120,3 @@ def gen_all():
             # Save subnetwork
             save_graph_data(Z, file_name=file_name,
                             path=instance_path_network)
-

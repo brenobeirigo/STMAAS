@@ -641,7 +641,7 @@ def download_network(**args):
     save_network(G, network_name, root)
     return G
 
-def save_graph_data(G, modes_list=["autonomous","conventional"], path=root, file_name=None):
+def save_graph_data(G, modes_list=["autonomous","conventional"], path=root, file_name=None, save_graph=True):
     """Save distance data in root
     
     Arguments:
@@ -659,10 +659,11 @@ def save_graph_data(G, modes_list=["autonomous","conventional"], path=root, file
     # Save distances FROM:{TO1:DIS1, TO2:DIS2, TO3:DIS3}
     save_dist_dic(distance_dic, path + "/" + file_name + ".json")
     
-    print("Saving graph data ", file_name)
-    # Save modified network
-    save_network(G, file_name + ".graphml", path)
-
+    if save_graph:
+        print("Saving graph data ", file_name)
+        # Save modified network
+        save_network(G, file_name + ".graphml", path)
+        
 def gen_vehicle_data(**args):
     """
     Receive number of vehicles per zone (A, C, D)
