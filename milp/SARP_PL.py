@@ -7,7 +7,7 @@ class SARP_PL(OptMethod):
                  DAO,
                  TIME_LIMIT):
         self.TIME_LIMIT = TIME_LIMIT
-        self.DISCOUNT_PASSENGER_S = DAO.get_discount_passenger()
+        self.DISCOUNT_PASSENGER_S = DAO.discount_passenger
         OptMethod.__init__(self, DAO)
         self.start()
 
@@ -123,8 +123,8 @@ class SARP_PL(OptMethod):
             #            IF there is a ride from i to j
             m.addConstrs((arrival_t[k, j] >=
                           arrival_t[k, i] +
-                          self.nodes_dic[i].get_service_t() +
-                          self.times[i, j, self.vehicles_dic[k].get_type()] -
+                          self.nodes_dic[i].service_t +
+                          self.times[i, j, self.vehicles_dic[k].type_vehicle] -
                           self.get_big_m(k, i, j) * (1 - ride[k, i, j])
                           for k, i, j in valid_rides), "ARRI_T")
 
@@ -134,7 +134,7 @@ class SARP_PL(OptMethod):
             r1 = datetime.now()
             # (RIDE_1) = Ride time from i to j >=
             #            time_from_i_to_j
-            m.addConstrs((travel_t[k, i] >= self.times[i, j, self.vehicles_dic[k].get_type()]
+            m.addConstrs((travel_t[k, i] >= self.times[i, j, self.vehicles_dic[k].type_vehicle]
                           for k in self.vehicles
                           for i, j in self.pd_tuples
                           if (k, i, j) in valid_rides), "RIDE_1")
@@ -155,7 +155,7 @@ class SARP_PL(OptMethod):
             m.addConstrs((travel_t[k, i] ==
                           arrival_t[k, j] -
                           (arrival_t[k, i] +
-                           self.nodes_dic[i].get_service_t())
+                           self.nodes_dic[i].service_t)
                           for k in self.vehicles
                           for i, j in self.pd_tuples
                           if (k, i, j) in valid_rides), "RIDE_3")
@@ -165,24 +165,24 @@ class SARP_PL(OptMethod):
             #>>>>>> TIME WINDOW FOR PICKUP
             # (EARL) = Arrival time in i >=
             #          earliest arrival time in i
-            m.addConstrs((arrival_t[k, i] >= self.earliest_latest[(self.vehicles_dic[k].get_type(), i)]["earliest"]
+            m.addConstrs((arrival_t[k, i] >= self.earliest_latest[(self.vehicles_dic[k].type_vehicle, i)]["earliest"]
                           for (k, i) in valid_visits_pk), "EARL")
 
             print("    # LATE")
             # (LATE) = Arrival time in i <=
             #          earliest arrival time + MAX_PICKUP_LATENESS
-            m.addConstrs((arrival_t[k, i] <= self.earliest_latest[(self.vehicles_dic[k].get_type(), i)]["latest"]
+            m.addConstrs((arrival_t[k, i] <= self.earliest_latest[(self.vehicles_dic[k].type_vehicle, i)]["latest"]
                           for (k, i) in valid_visits_pk), "LATE")
 
             #>>>>>> TIME WINDOW FOR MAX. DURATION OF ROUTE
             # (POWER) = Maximal duration of route k <= POWER_K autonomy
             """
             for veh in self.vehicles:
-                a = quicksum(self.cost_in_s[i, j, self.vehicles_dic[k].get_type()] * ride[k, i, j]
+                a = quicksum(self.cost_in_s[i, j, self.vehicles_dic[k].type_vehicle] * ride[k, i, j]
                              for k, i, j in valid_rides
                                  if k == veh )
-                m.addConstr(a <= self.DAO.get_vehicle_dic()[k]
-                                     .get_autonomy() * 3600, "POWER[%s]" % (k))
+                m.addConstr(a <= self.DAO.vehicle_dic[k]
+                                     .autonomy * 3600, "POWER[%s]" % (k))
             """
             #### LOADING CONSTRAINTS ##########################################
 
@@ -247,12 +247,12 @@ class SARP_PL(OptMethod):
             # (not a valid visit)
             m.addConstrs((arrival_t[k, i] ==
                           self.vehicles_dic[k]
-                          .get_pos()
-                          .get_arrival_t() - config.start_revealing_tstamp
+                          .pos
+                          .arrival_t - config.start_revealing_tstamp
                           for k, i in arrival_t
                           if i == self.vehicles_dic[k]
-                          .get_pos()
-                          .get_id()), "ARRI_AT_ORIGIN")
+                          .pos
+                          .id), "ARRI_AT_ORIGIN")
 
             start_end_nodes = list(self.starting_locations)
 
@@ -263,8 +263,8 @@ class SARP_PL(OptMethod):
 
             #### OPTIMIZE MODEL ###############################################
             print("Setting fares of lockers...")
-            fare_locker_dis = self.DAO.get_fare_locker_dis()
-            fare_locker = self.DAO.get_fare_locker()
+            fare_locker_dis = self.DAO.fare_locker_dis
+            fare_locker = self.DAO.fare_locker
 
             print("Setting Objective function...")
             # OBJECTIVE FUNCTION 1 - INCREASE PROFIT
@@ -279,15 +279,15 @@ class SARP_PL(OptMethod):
             if acquisition_cost_fsm:
                 # Acquisition cost of vehicles (Fleet size and mix)
                 acquistion_cost = quicksum(self.vehicles_dic[k].acquisition_cost
-                                    * ride[k, self.vehicles_dic[k].get_pos().get_id(), j]
+                                    * ride[k, self.vehicles_dic[k].pos.id, j]
                                     for k in self.vehicles_dic
                                     for j in self.nodes
-                                    if (k, self.vehicles_dic[k].get_pos().get_id(), j) in valid_rides)
+                                    if (k, self.vehicles_dic[k].pos.id, j) in valid_rides)
             
             # Fixed fare + varied fare
             revenue = quicksum(d * (fare_locker[c]
                                     + fare_locker_dis[c]
-                                    * self.cost_in_s[i, j, self.vehicles_dic[k].get_type()])
+                                    * self.cost_in_s[i, j, self.vehicles_dic[k].type_vehicle])
                                     * ride[k, i, j]
                                     for k in self.vehicles_dic
                                     for i, j in self.pd_pairs.items()
@@ -296,7 +296,7 @@ class SARP_PL(OptMethod):
             
             # Total operational cost
             operational_cost = quicksum(self.vehicles_dic[k].operation_cost_s
-                                    * self.cost_in_s[i, j, self.vehicles_dic[k].get_type()]
+                                    * self.cost_in_s[i, j, self.vehicles_dic[k].type_vehicle]
                                     * ride[k, i, j]
                                     for k, i, j in valid_rides)
             
@@ -315,9 +315,9 @@ class SARP_PL(OptMethod):
                              j,
                              self.vehicles_dic[k].operation_cost_s *
                              self.cost_in_s[i, j,
-                                            self.vehicles_dic[k].get_type()],
+                                            self.vehicles_dic[k].type_vehicle],
                              self.vehicles_dic[k].operation_cost_s,
-                             self.cost_in_s[i, j, self.vehicles_dic[k].get_type()])
+                             self.cost_in_s[i, j, self.vehicles_dic[k].type_vehicle])
 
             # DISCOUNT
             # Ride time of request i (minus service time (embarking
@@ -370,7 +370,7 @@ class SARP_PL(OptMethod):
 
                 print("REQUEST DICTIONARY")
                 pprint.pprint(self.request_dic)
-                print("ALL:", [r.get_id() for r in self.request_dic.values()])
+                print("ALL:", [r.id for r in self.request_dic.values()])
 
                 ###################################################################
 

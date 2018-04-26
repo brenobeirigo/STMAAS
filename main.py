@@ -30,21 +30,21 @@ def get_result_line(test_case, response=None, save_mode=None):
             ",".join([str(response.mix_n[k])
                       if k in response.mix_n else "0" for k in config.vehicle_modes]),
             len(response.attended_requests),
-            response.get_overall_occupancy_v(),
-            response.get_n_vehicles(),
-            round(float(response.get_profit()), 2),
-            response.get_profit_reqs(),
-            response.get_overall_operational_cost(),
-            response.get_solver_sol()["gap"],
-            response.get_solver_sol()["num_vars"],
-            response.get_solver_sol()["num_constrs"],
-            response.get_solver_sol()["obj_bound"],
-            response.get_solver_sol()["obj_val"],
-            response.get_solver_sol()["node_count"],
-            response.get_solver_sol()["sol_count"],
-            response.get_solver_sol()["iter_count"],
-            response.get_solver_sol()["preprocessing_t"],
-            response.get_solver_sol()["runtime"],
+            response.overall_occupancy_v,
+            response.n_vehicles,
+            round(float(response.profit), 2),
+            response.profit_reqs,
+            response.overall_operational_cost,
+            response.solver_sol["gap"],
+            response.solver_sol["num_vars"],
+            response.solver_sol["num_constrs"],
+            response.solver_sol["obj_bound"],
+            response.solver_sol["obj_val"],
+            response.solver_sol["node_count"],
+            response.solver_sol["sol_count"],
+            response.solver_sol["iter_count"],
+            response.solver_sol["preprocessing_t"],
+            response.solver_sol["runtime"],
             source_input[save_mode]["network"],
             source_input[save_mode]["request"],
             source_input[save_mode]["vehicle"],
@@ -183,7 +183,7 @@ for n, s, v, r in config.all_tests_dic.values():
 
     # If model is executed successfully
     elif ilp_model.status == "optimal":
-        response = ilp_model.get_response()
+        response = ilp_model.response
         # printing response
         response.print_requests_info()
 
@@ -195,7 +195,7 @@ for n, s, v, r in config.all_tests_dic.values():
         file.write("\n" + line)
 
     n_tested = n_tested + 1
-    print("RUNTIME:", response.get_solver_sol()[
+    print("RUNTIME:", response.solver_sol[
               "runtime"], "----->>>>> PROGRESS {0}/{1}({2:.2f}%)".format(n_tested, total_tested, n_tested / total_tested))
 
     # Close log file

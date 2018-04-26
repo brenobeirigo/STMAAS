@@ -42,7 +42,6 @@ class Request(object):
                                     destination_demand,
                                     id,
                                     network_node_id = id_destination_node)
-       
         self.id = id
         print("REQUEST id:", self.id)
         self.revealing = revealing  # use revealing.timestamp() to get an integer
@@ -63,9 +62,6 @@ class Request(object):
         self.originNode.set_is_live_stock(self.live_stock)
         self.destinationNode.set_is_live_stock(self.live_stock)
         self.reset()
-
-    def get_id(self):
-        return self.id
 
     def get_embarking_t(self):
         return self.embarking_t
@@ -92,19 +88,19 @@ class Request(object):
     def print_status(self):
         print(self.id, "---",
               self.vehicle_scheduled_id,
-              self.originNode.get_id(),
+              self.originNode.id,
               Node.get_formatted_time_h(self.arrival_t),
-              self.destinationNode.get_id(),
+              self.destinationNode.id,
               Node.get_formatted_time_h(
                   self.arrival_t + self.total_travel_time),
               self.total_travel_time,
               self.detour_ratio)
 
     def get_pk_time(self):
-        return self.originNode.get_arrival_t()
+        return self.originNode.arrival_t
 
     def get_dl_time(self):
-        return self.destinationNode.get_arrival_t()
+        return self.destinationNode.arrival_t
 
     def get_distance(self, DAO, type_v=False):
         """ Return dictionary of distances from origin destinaton.
@@ -117,9 +113,9 @@ class Request(object):
             dictionary -- If vehicle was not assigned.
             distance -- Related to type of vehicle assigned (A, C, D).
         """
-        dist = DAO.get_distance_from_to(self.originNode.get_id(), self.destinationNode.get_id())
+        dist = DAO.get_distance_from_to(self.originNode.id, self.destinationNode.id)
         if type_v and self.get_vehicle_scheduled_id():
-            return dist[DAO.get_vehicle_dic()[self.get_vehicle_scheduled_id()].get_type()]
+            return dist[DAO.vehicle_dic[self.get_vehicle_scheduled_id()].type_vehicle]
         else:
             return dist
 
@@ -136,8 +132,8 @@ class Request(object):
 
         for c in self.demand.keys():
             if self.demand[c] > 0:
-                fare_c_fixed = DAO.get_fare_locker()[c]
-                fare_c_km = DAO.get_fare_locker_dis()[c]
+                fare_c_fixed = DAO.fare_locker[c]
+                fare_c_km = DAO.fare_locker_dis[c]
 
                 for m in self.ett_dic_node.keys():
                     self.fare[m] += self.demand[c]*(fare_c_fixed + self.ett_dic_node[m] * fare_c_km)
@@ -147,18 +143,18 @@ class Request(object):
         for c in self.demand.keys():
             if self.demand[c] > 0:
                 self.embarking_t += self.demand[c] * \
-                    DAO.get_locker_embarking_t()[c]
+                    DAO.locker_embarking_t[c]
                 self.disembarking_t += self.demand[c] * \
-                    DAO.get_locker_disembarking_t()[c]
+                    DAO.locker_disembarking_t[c]
         # Set values of service time in nodes
-        self.originNode.set_service_t(self.embarking_t)
-        self.destinationNode.set_service_t(self.disembarking_t)
+        self.originNode.service_t = self.embarking_t
+        self.destinationNode.service_t = self.disembarking_t
 
     def get_distance_clock(self, DAO):
-        return self.destinationNode.get_arrival_t() - self.originNode.get_arrival_t()
+        return self.destinationNode.arrival_t - self.originNode.arrival_t
 
     def get_eta(self):
-        return self.originNode.get_arrival_t() - self.get_revealing_tstamp()
+        return self.originNode.arrival_t - self.get_revealing_tstamp()
 
     def get_travel_delay(self, DAO):
         return self.get_distance_clock(DAO) - self.get_distance(DAO, type_v=True)
@@ -200,7 +196,7 @@ class Request(object):
 
     def get_detour_ratio(self):
         # Only the livestock benefits from detour discount
-        if self.is_attended() and self.is_live_stock():
+        if self.is_attended() and self.live_stock:
             #print("##detour:", self.total_travel_time, self.ett)
             return (self.total_travel_time) / self.ett - 1
         return 0
@@ -224,10 +220,10 @@ class Request(object):
         return self.id \
             + ' <' + str(self.get_revealing().strftime('%H:%M')) + '>' \
               + ' ### '\
-              + str(self.originNode.get_id()) +'('+ self.originNode.get_network_node_id() +') -> '\
-              + str(self.destinationNode.get_id()) +'('+ self.destinationNode.get_network_node_id() +')'\
+              + str(self.originNode.id) +'('+ self.originNode.network_node_id +') -> '\
+              + str(self.destinationNode.id) +'('+ self.destinationNode.network_node_id +')'\
               + str(" ||" + ", ".join(["[{0}=${1:.2f}]".format(m, self.fare[m]) for m in self.fare.keys()]) + "||") \
-              + ("(LSTOCK)" if self.is_live_stock() else "(PARCEL)")\
+              + ("(LSTOCK)" if self.live_stock else "(PARCEL)")\
               + "/".join(['{0:>3}={1:<2}'.format(k, v) for k, v in self.get_demand_short().items()]) \
               + (" || DL DELAY: " + str(self.delivery_delay) if self.delivery_delay != None else "") \
               + (" || PK DELAY: " + str(self.pickup_delay) if self.pickup_delay != None else "") \
@@ -251,7 +247,7 @@ class Request(object):
             Node.get_formatted_time(self.get_revealing().timestamp()),
             self.originNode.get_json_leg_node(),
             self.destinationNode.get_json_leg_node(),
-            str(self.is_live_stock()).lower(),
+            str(self.live_stock).lower(),
             (self.get_pickup_delay() if self.get_pickup_delay() is not None else "null"),
             (self.get_delivery_delay()
              if self.get_delivery_delay() is not None else "null"),
@@ -259,5 +255,5 @@ class Request(object):
             self.get_embarking_t(),
             self.get_disembarking_t(),
             self.get_detour_ratio(),
-            self.get_id())
+            self.id)
         return json

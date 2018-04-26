@@ -54,24 +54,9 @@ class Node(object):
         self.reset()
         self.network_node_id = network_node_id
         self.service_t = 0  # Time for embarking disembarking
-    
-    def get_network_id(self):
-        return self.network_node_id
 
     def set_is_live_stock(self, live_stock):
         self.live_stock = live_stock
-    
-    def is_live_stock():
-        return self.live_stock
-
-    def set_service_t(self, service_t):
-        self.service_t = service_t
-
-    def get_service_t(self):
-        return self.service_t
-    
-    def get_network_node_id(self):
-        return self.network_node_id
 
     def reset(self):
         self.arrival_t = 0
@@ -79,31 +64,8 @@ class Node(object):
         self.id_next = None
         self.vehicle = None
 
-    def get_vehicle(self):
-        return self.vehicle
-    def get_request_id(self):
-        return self.request_id
-
-    def get_demand(self):
-        return self.demand
-
     def get_demand_short(self):
         return {id: int(self.demand[id]) for id in self.demand.keys() if int(self.demand[id]) != 0}
-
-    def get_load(self):
-        return self.load
-
-    def get_type(self):
-        return self.type
-
-    def set_type(self, type):
-        self.type = type
-
-    def get_id_next(self):
-        return self.id_next
-
-    def set_id_next(self, id_next):
-        self.id_next = id_next
 
     def set_arrival_t(self, arrival_t):
         self.arrival_t = arrival_t
@@ -111,26 +73,8 @@ class Node(object):
     def is_visited(self):
         return self.arrival_t > 0
 
-    def set_vehicle(self, vehicle):
-        self.vehicle = vehicle
-
-    def set_load(self, load):
-        self.load = load
-
-    def get_id(self):
-        return self.id
-
-    def get_arrival_t(self):
-        return self.arrival_t
-
-    def get_load(self):
-        return self.load
-
     def get_load_0(self):
         return {id: int(self.load[id]) for id in self.load.keys() if abs(int(self.load[id])) != 0}
-
-    def get_coord(self):
-        return self.coord
 
     @classmethod
     def increment_id(self):
@@ -161,11 +105,10 @@ class Node(object):
 
     @classmethod
     def copy_node(self, node):
-        return Node.factory_node(node.get_type(), node.get_id(), node.get_coord().get_x(), node.get_coord().get_y(), node.get_demand(), node.get_request_id(), node.get_network_id())
+        return Node.factory_node(node.type_vehicle, node.id, node.coord.x, node.coord.y, node.demand, node.request_id, node.network_node_id)
 
     def __str__(self):
-        return " " + str(self.get_id()) + str(self.coord) + " " + str({id: int(self.demand[id]) for id in self.demand.keys() if int(self.demand[id]) != 0})
-
+        return " " + str(self.id) + str(self.coord) + " " + str({id: int(self.demand[id]) for id in self.demand.keys() if int(self.demand[id]) != 0})
 
 # Pickup node
 class NodePK(Node):
@@ -177,12 +120,9 @@ class NodePK(Node):
         #Node.increment_id()
         Node.__init__(self, type, new_id, x, y, demand, request_id, network_node_id=network_node_id)
 
-    def set_vehicle(self, vehicle):
-        self.vehicle = vehicle
-
     def __str__(self):
-        return self.get_request_id() + " - " + Node.get_formatted_time(self.arrival_t) \
-            + '  |' + self.get_id() + '|' \
+        return self.request_id + " - " + Node.get_formatted_time(self.arrival_t) \
+            + '  |' + self.id + '|' \
             + ' - LOAD: ' \
             + str({id: int(self.load[id])
                    for id in self.load.keys()
@@ -190,22 +130,22 @@ class NodePK(Node):
 
     def get_json(self):
         js = '{'
-        js += '"node_id": "' + self.get_id() + '"'
-        js += ', "request_id":"' + self.get_request_id() + '"'
-        js += ', "type":"' + self.get_type() + '"'
-        js += ', "lat":' + str(self.coord.get_y())
-        js += ', "lng":' + str(self.coord.get_x())
+        js += '"node_id": "' + self.id + '"'
+        js += ', "request_id":"' + self.request_id + '"'
+        js += ', "type":"' + self.type_vehicle + '"'
+        js += ', "lat":' + str(self.coord.y)
+        js += ', "lng":' + str(self.coord.x)
         js += '}'
         return js
 
     def get_json_leg_node(self):
         js = '{'
-        js += '"node_id": "' + self.get_id() + '"'
-        js += ', "request_id":"' + self.get_request_id() + '"'
-        js += ', "type":"' + self.get_type() + '"'
-        js += ', "vehicle_id":'+ ('"'+self.get_vehicle().get_id()+'"' if self.get_vehicle() is not None else "null")
-        js += ', "lat":' + str(self.coord.get_y())
-        js += ', "lng":' + str(self.coord.get_x())
+        js += '"node_id": "' + self.id + '"'
+        js += ', "request_id":"' + self.request_id + '"'
+        js += ', "type":"' + self.type_vehicle + '"'
+        js += ', "vehicle_id":'+ ('"'+self.vehicle.id+'"' if self.vehicle is not None else "null")
+        js += ', "lat":' + str(self.coord.y)
+        js += ', "lng":' + str(self.coord.x)
         js += ', "node_arrival_time":"' + \
             Node.get_formatted_time(self.arrival_t) + '"'
         js += ', "compartment_status": ['\
@@ -228,22 +168,22 @@ class NodeDL(Node):
 
     def get_json(self):
         js = '{'
-        js += '"node_id": "' + self.get_id() + '"'
-        js += ', "request_id":"' + self.get_request_id() + '"'
-        js += ', "type":"' + self.get_type() + '"'
-        js += ', "lat":' + str(self.coord.get_y())
-        js += ', "lng":' + str(self.coord.get_x())
+        js += '"node_id": "' + self.id + '"'
+        js += ', "request_id":"' + self.request_id + '"'
+        js += ', "type":"' + self.type_vehicle + '"'
+        js += ', "lat":' + str(self.coord.y)
+        js += ', "lng":' + str(self.coord.x)
         js += '}'
         return js
 
     def get_json_leg_node(self):
         js = '{'
-        js += '"node_id": "' + self.get_id() + '"'
-        js += ', "request_id":"' + self.get_request_id() + '"'
-        js += ', "type":"' + self.get_type() + '"'
-        js += ', "vehicle_id":'+ ('"'+self.get_vehicle().get_id()+'"' if self.get_vehicle() is not None else "null")
-        js += ', "lat":' + str(self.coord.get_y())
-        js += ', "lng":' + str(self.coord.get_x())
+        js += '"node_id": "' + self.id + '"'
+        js += ', "request_id":"' + self.request_id + '"'
+        js += ', "type":"' + self.type_vehicle + '"'
+        js += ', "vehicle_id":'+ ('"'+self.vehicle.id+'"' if self.vehicle is not None else "null")
+        js += ', "lat":' + str(self.coord.y)
+        js += ', "lng":' + str(self.coord.x)
         js += ', "node_arrival_time":"' + \
             Node.get_formatted_time(self.arrival_t) + '"'
         js += ', "compartment_status": ['\
@@ -251,9 +191,10 @@ class NodeDL(Node):
             + ']'
         js += '}'
         return js
+    
     def __str__(self):
         # return '|DL|' + super().__str__() + ' - LOAD: ' + str({id:int(self.load[id]) for id in self.load.keys() if int(self.load[id])>0}) + ' - ARR: ' + datetime.fromtimestamp(int(self.arrival_t)).strftime('%Y-%m-%d %H:%M:%S')
-        return self.get_request_id() + " - " + Node.get_formatted_time(self.arrival_t) + '  |' + self.get_id() + '|' + ' - LOAD: ' + str({id: int(self.load[id]) for id in self.load.keys() if int(self.load[id]) > 0})
+        return self.request_id + " - " + Node.get_formatted_time(self.arrival_t) + '  |' + self.id + '|' + ' - LOAD: ' + str({id: int(self.load[id]) for id in self.load.keys() if int(self.load[id]) > 0})
 
 # Departure/arrival node
 
@@ -268,22 +209,22 @@ class NodeDepot(Node):
 
     def get_json(self):
         js = '{'
-        js += '"node_id": "' + self.get_id() + '"'
+        js += '"node_id": "' + self.id + '"'
         js += ', "request_id":null'
-        js += ', "type":"' + self.get_type() + '"'
-        js += ', "lat":' + str(self.coord.get_y())
-        js += ', "lng":' + str(self.coord.get_x())
+        js += ', "type":"' + self.type_vehicle + '"'
+        js += ', "lat":' + str(self.coord.y)
+        js += ', "lng":' + str(self.coord.x)
         js += '}'
         return js
 
     def get_json_leg_node(self):
         js = '{'
-        js += '"node_id": "' + self.get_id() + '"'
+        js += '"node_id": "' + self.id + '"'
         js += ', "request_id":null'
-        js += ', "type":"' + self.get_type() + '"'
-        js += ', "vehicle_id":'+ ('"'+self.get_vehicle().get_id()+'"' if self.get_vehicle() is not None else "null")
-        js += ', "lat":' + str(self.coord.get_y())
-        js += ', "lng":' + str(self.coord.get_x())
+        js += ', "type":"' + self.type_vehicle + '"'
+        js += ', "vehicle_id":'+ ('"'+self.vehicle.id+'"' if self.vehicle is not None else "null")
+        js += ', "lat":' + str(self.coord.y)
+        js += ', "lng":' + str(self.coord.x)
         js += ', "node_arrival_time":"' + \
             Node.get_formatted_time(self.arrival_t) + '"'
         js += ', "compartment_status": ['\
@@ -294,4 +235,4 @@ class NodeDepot(Node):
 
     def __str__(self):
         # print("STR: ", self.arrival_t)
-        return "START - " + Node.get_formatted_time(self.arrival_t) + '  |' + self.get_id() + ' (' + str(self.get_network_node_id()) + ')' + '|' + ' - LOAD: ' + str({id: int(self.load[id]) for id in self.load.keys() if int(self.load[id]) > 0})
+        return "START - " + Node.get_formatted_time(self.arrival_t) + '  |' + self.id + ' (' + str(self.network_node_id) + ')' + '|' + ' - LOAD: ' + str({id: int(self.load[id]) for id in self.load.keys() if int(self.load[id]) > 0})

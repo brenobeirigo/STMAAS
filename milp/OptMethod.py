@@ -30,25 +30,25 @@ class OptMethod:
         self.DAO = DAO.copy()
 
         # The distance matrix
-        self.dist_matrix = self.DAO.get_distance_matrix()
+        self.dist_matrix = self.DAO.distance_matrix
 
         # All points involving the orders
-        self.nodes_dic = self.DAO.get_nodes_dic()
+        self.nodes_dic = self.DAO.nodes_dic
 
         # Start and end av location
-        self.starting_locations = self.DAO.get_starting_locations_dic().keys()
+        self.starting_locations = self.DAO.starting_nodes_dic.keys()
 
         # List of vehicles ids
-        self.vehicles = [k.get_id() for k in self.DAO.get_vehicle_list()]
+        self.vehicles = [k.id for k in self.DAO.vehicle_list]
 
         # Dictionary of vehicles
-        self.vehicles_dic = DAO.get_vehicle_dic()
+        self.vehicles_dic = DAO.vehicle_dic
 
         # List of nodes ids
         self.nodes = list(self.nodes_dic.keys())
 
         # Dictionary of nodes reachable by vehicles
-        self.reachable = DAO.get_reachable()
+        self.reachable = DAO.reachable
 
         self.earliest_latest = DAO.get_earliest_latest()
         logger.debug(
@@ -95,68 +95,68 @@ class OptMethod:
         logger.debug(pprint.pformat(list(self.vehicles_dic)))
 
         # Get dictionary of requests ex.: {'PK1':Req}
-        self.request_dic = self.DAO.get_request_dic()
+        self.request_dic = self.DAO.request_dic
 
         # Define earliest latest self.times to attend request
-        self.earliest_t = self.DAO.get_earliest_t_dic()
+        self.earliest_t = self.DAO.earliest_t
 
         # Define earliest latest self.times to attend request
-        self.earliest_tstamp = self.DAO.get_earliest_tstamp_dic()
+        self.earliest_tstamp = self.DAO.earliest_tstamp
 
         # Define dic of max pick-up delay
-        self.max_pickup_delay = self.DAO.get_max_pickup_delay()
+        self.max_pickup_delay = self.DAO.max_pickup_delay
 
         # Define dic of max pick-up delay
-        self.max_delivery_delay = self.DAO.get_max_delivery_delay()
+        self.max_delivery_delay = self.DAO.max_delivery_delay
 
         # Set of pick-up points
-        self.pk_points = self.DAO.get_pk_points_list()
+        self.pk_points = self.DAO.pk_points_list
 
         # List of pk and dp points
-        self.pd_nodes = self.DAO.get_pd_nodes_list()
+        self.pd_nodes = self.DAO.pd_nodes
 
         # Get dl points
-        self.dl_points = self.DAO.get_dl_points_list()
+        self.dl_points = self.DAO.dl_points_list
 
         # List of pickup/delivery tuples from self.requests
-        self.pd_tuples = self.DAO.get_pd_tuples()
+        self.pd_tuples = self.DAO.pd_tuples
 
         # Dictionary of pickup/delivery tuples from self.requests
-        self.pd_pairs = self.DAO.get_pd_pairs()
+        self.pd_pairs = self.DAO.pd_pairs
 
         # Each vehicle k ∈ K has a capacity Qk
-        self.capacity_vehicle = self.DAO.get_capacity_vehicles()
+        self.capacity_vehicle = self.DAO.capacity_vehicles
 
         # self.nodes pickup and delivery demands
         # Ex.: {('pk3', 'C'): 1, ('dp1', 'I'): 0, ('dl4', 'C'): -1, ...}
-        self.pk_dl = self.DAO.get_pk_dl()
+        self.pk_dl = self.DAO.pk_dl
 
         # Parcel dictionary, e.g. {'AV1_0': ['L', 'XL'], 'AV2_0': ['S']}
-        self.lockers_v = self.DAO.get_lockers_v()
+        self.lockers_v = self.DAO.lockers_v
 
-        self.vehicle_nodes = self.DAO.get_vehicles_nodes()
+        self.vehicle_nodes = self.DAO.vehicles_nodes
 
     # Return TRUE if vehicle k can fully attend demands of nodes i and j
     def vehicle_fit_node_demand(self, k, i):
         logger.debug("Checking match V{0} and R{1}...".format(k, i))
-        id_node_vehicle = self.vehicles_dic[k].get_pos().get_id()
+        id_node_vehicle = self.vehicles_dic[k].pos.id
         # Vehicle k can only visit depot nodes that correspond to its
         # own starting position, i.e. DP_AV2_5 can visit node DP_AV2_5
         # but can't visit DP_AV2_4
         if i in self.starting_locations \
-                and isinstance(self.DAO.get_nodes_dic()[i], NodeDepot) \
+                and isinstance(self.DAO.nodes_dic[i], NodeDepot) \
                 and id_node_vehicle != i:
 
             # Log information regarding node i
             logger.debug("Node %s is in starting locations", i)
-            logger.debug(self.DAO.get_nodes_dic()[i])
+            logger.debug(self.DAO.nodes_dic[i])
             logger.debug("Network id of vehicle: %s", id_node_vehicle)
 
             return False
 
         logger.debug("Node %s belongs to a request", i)
-        veh_capacity = self.DAO.get_vehicle_dic()[k].get_capacity()
-        demand_i = self.DAO.get_nodes_dic()[i] \
+        veh_capacity = self.DAO.vehicle_dic[k].capacity
+        demand_i = self.DAO.nodes_dic[i] \
             .get_demand_short()
 
         logger.debug(demand_i)
@@ -186,7 +186,7 @@ class OptMethod:
         return False
 
     def get_big_m(self, k, i, j):
-        k_mode = self.vehicles_dic[k].get_type()
+        k_mode = self.vehicles_dic[k].type_vehicle
         latest_i = self.earliest_latest[(k_mode, i)]["latest"]
         earliest_i = self.earliest_latest[(k_mode, i)]["earliest"]
         service_i = self.earliest_latest[(k_mode, i)]["service"]
@@ -207,8 +207,8 @@ class OptMethod:
         return max(0, big_m)
 
     def get_big_w(self, c, k, i):
-        capacity_k = self.vehicles_dic[k].get_capacity()[c]
-        load_i = self.nodes_dic[i].get_demand()[c]
+        capacity_k = self.vehicles_dic[k].capacity[c]
+        load_i = self.nodes_dic[i].demand[c]
         return min(2 * capacity_k, 2 * capacity_k + load_i)
 
     def __repr__(self):
@@ -238,10 +238,6 @@ class OptMethod:
 
         return str
 
-    # Return response generated by opt method
-    def get_response(self):
-        return self.response
-
     def get_valid_rides(self):
         #### VARIABLES ###################################################
         # Decision variable - viable vehicle paths
@@ -263,8 +259,8 @@ class OptMethod:
         # Create valid rides
         e_l = 0
         for k in self.vehicles:
-            k_id = self.vehicles_dic[k].get_pos().get_id()
-            mode_vehicle = self.vehicles_dic[k].get_type()
+            k_id = self.vehicles_dic[k].pos.id
+            mode_vehicle = self.vehicles_dic[k].type_vehicle
             for i, j, mode in self.arcs:
                 # If vehicle k can reach node i
                 # if vehicle can travel in arc i,j (coincident modes)
@@ -312,9 +308,9 @@ class OptMethod:
                                 self.nodes_dic[i].get_service_t(
                             ) + self.max_delivery_delay[i]
                             t_i_j = self.times[i, j, mode_vehicle] + \
-                                self.nodes_dic[i].get_service_t()
+                                self.nodes_dic[i].service_t
                             t_j_dl = self.times[j, dl, mode_vehicle] + \
-                                self.nodes_dic[j].get_service_t()
+                                self.nodes_dic[j].service_t
                             if t_i_j + t_j_dl > max_ride:
                                 continue
 

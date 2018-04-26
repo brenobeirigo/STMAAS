@@ -154,8 +154,8 @@ all_tests_dic = {"{}_{}_{}_{}".format(n, s, v, r): (n, s, v, r)
                  for s in price_scenario_tuples
                  for n in network_tuples
                  for v in vehicle_tuples
-                 for r in request_tuples
-                 if int(v.split("_")[0]) <= int(r.split("_")[0])}
+                 for r in request_tuples}
+                 #if int(v.split("_")[0]) <= int(r.split("_")[0])}
 
 if not os.path.exists(all_result_path):
     # Does not exist OR

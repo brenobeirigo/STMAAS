@@ -31,12 +31,6 @@ class Compartment:
             a.append(Compartment(pair[0], pair[1]))
         return a
 
-    def get_label(self):
-        return self.label
-
-    def get_amount(self):
-        return self.amount
-
     def get_random_occupancy_level(self, l, u):
         lower = 1 if l == 0 else math.ceil(l * self.amount)
         upper = self.amount if u > self.amount else math.ceil(u * self.amount)
@@ -61,7 +55,7 @@ class Compartment:
         str_random_compartments = []
         for c in a_compartments:
             str_random_compartments.append(str(Compartment(
-                c.get_label(), c.get_random_occupancy_level(l, u))))
+                c.label, c.get_random_occupancy_level(l, u))))
         return Compartment.sep1.join(sr for sr in str_random_compartments)
 
 class CompartmentHuman(Compartment):

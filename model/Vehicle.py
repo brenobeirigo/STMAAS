@@ -38,9 +38,6 @@ class Vehicle:
     def reset_vehicles_ids(cls):
         cls.n_vehicles = 0
 
-    def get_type(self):
-        return self.type_vehicle
-
     def __init__(self, id, autonomy, pos, capacity, available_at, type_vehicle=None, acquisition_cost=0, operation_cost_s=0):
         self.type_vehicle = type_vehicle
         self.color = Vehicle.color[Vehicle.n_vehicles % 21]
@@ -70,14 +67,7 @@ class Vehicle:
         self.color = str("#%06x" % random.randint(0, 0xFFFFFF))
         self.reset()
         Vehicle.n_vehicles += 1
-
-    def get_operational_cost(self):
-        return self.operational_cost
-        
-    def get_color(self):
-        return self.color
-
-    
+   
     def reset(self):
         
         # Average occupancy of vehicle's compartments in relation
@@ -103,8 +93,7 @@ class Vehicle:
         if len(self.path.keys()) <= 2:
             return False
         return True
-
-    
+   
     # Return TRUE if vehicle can fully attend request
     def fit_demand(self, request):
         demand = request.get_demand_short()
@@ -142,63 +131,30 @@ class Vehicle:
     # will affect the profits?
     # Autonomy in hours
 
-    def get_overall_avg_occupancy(self):
-        return self.overall_avg_occupancy
-
-    def get_id(self):
-        return self.id
-
-    def get_autonomy(self):
-        return self.autonomy
-
-    def get_color(self):
-        return self.color
-
     def add_node(self, node):
-        self.path[node.get_id()] = node
-
-    def get_pos(self):
-        return self.pos
-
-    def get_capacity(self):
-        return self.capacity
-
-    def get_path(self):
-        return self.path
-
-    def set_path(self, path):
-        self.path = path
+        self.path[node.id] = node
 
     def __str__(self):
-        current_node = self.pos.get_id()
+        current_node = self.pos.id
         print(self.path.keys())
-        s = '#' + self.get_id() + ':\n'
+        s = '#' + self.id + ':\n'
         while current_node in self.path.keys():
-            next_node = self.path[current_node].get_id_next()
+            next_node = self.path[current_node].id_next
             s += str(current_node) + ' -> ' + str(next_node)\
                 + ': ' + str(self.path[current_node]) + '\n'
             current_node = next_node
         return s
 
     def __repr__(self):
-        current_node = self.pos.get_id()
+        current_node = self.pos.id
         print(self.path.keys())
-        s = '#' + self.get_id() + ':\n'
+        s = '#' + self.id + ':\n'
         while current_node in self.path.keys():
-            next_node = self.path[current_node].get_id_next()
+            next_node = self.path[current_node].id_next
             s += str(current_node) + ' -> ' + str(next_node)\
                 + ': ' + str(self.path[current_node]) + '\n'
             current_node = next_node
         return s
-
-    def get_available_at(self):
-        return self.available_at
-    
-    def get_available_at_tstamp(self):
-        return self.available_at
-    
-    def get_attended_requests(self):
-        return self.route.get_request_list()
 
     # Calculate vehicle proportional occupancy of each compartment
     # by time ridden
@@ -209,21 +165,21 @@ class Vehicle:
         self.route = Route(DAO, self.path, self.pos)
 
         # Get vehicle's capacity
-        capacity_vehicle = self.get_capacity()
+        capacity_vehicle = self.capacity
 
         # for i in range(0, len(list_nodes) - 1):
-        for leg in self.route.get_legs_dic().values():
+        for leg in self.route.legs_dic.values():
 
             # Starting node (origin)
-            origin = leg.get_origin()
+            origin = leg.origin
 
             # Get the current (destination) node
-            destination = leg.get_destination()
+            destination = leg.destination
 
 
             # Distance disconsidering pk/dp service time
-            dist = self.route.get_legs_dic()[(
-                origin, destination)].get_travel_t()
+            dist = self.route.legs_dic[(
+                origin, destination)].travel_t
 
             # Operational cost of leg
             leg_op_cost = self.operation_cost_s * dist
@@ -234,15 +190,15 @@ class Vehicle:
             """print("&&&OC", origin, " -> ", destination, ":", Node.get_formatted_duration_h(dist),
                   self.operation_cost_s, leg_op_cost, self.operational_cost)"""
 
-            origin_dest_delay = leg.get_invehicle_t()
+            origin_dest_delay = leg.invehicle_t
 
             # Get the load departing from the origin node (after loading)
-            load_origin = self.path[origin].get_load()
-            load_destination = self.path[destination].get_load()
+            load_origin = self.path[origin].load
+            load_destination = self.path[destination].load
 
             # Proportional time of complete route rode from
             # origin to destination
-            proportional_time = leg.get_proportional_t()
+            proportional_time = leg.proportional_t
 
             # Log of occupation data for each compartment c of vehicle
             occupation_log_c = collections.OrderedDict()
@@ -281,8 +237,8 @@ class Vehicle:
 
             #print("LOAD_ORIGIN", load_origin, "OCC. Log:", occupation_log_c)
 
-            self.route.get_legs_dic()[(
-                origin, destination)].set_load_origin_dic(load_origin)
+            self.route.legs_dic[(
+                origin, destination)].load_origin_dic = load_origin
 
         # Filter compartments not occupied during the whole route
         # (avg_occupation = 0)
@@ -294,12 +250,12 @@ class Vehicle:
 
         self.overall_avg_occupancy = sum(self.avg_occupancy_c.values()) / float(len(self.capacity))
 
-        """print("\n TOTAL TIME:", self.route.get_total_invehicle_t(),
+        """print("\n TOTAL TIME:", self.route.total_invehicle_t,
               "( travel times + service times from ORIGIN to DESTINATION)")"""
 
     def __repr__(self):
          # Get the list of nodes ordered by visitation order
-        #list_nodes = self.route.get_ordered_route()
+        #list_nodes = self.route.ordered_list
 
         # print("LIST NODES: ", list_nodes)
 
@@ -308,11 +264,11 @@ class Vehicle:
         # print("items:", self.capacity.items())
         js = '{'
         if not self.is_used():
-            s = self.get_id() + ' - ' + self.get_type() + ' - (' + str(self.pos) +')' + ",still,"
+            s = self.id + ' - ' + self.type_vehicle + ' - (' + str(self.pos) +')' + ",still,"
             s += "-".join(['{0:>3}:{1:<3}'.format(k, v)
                            for k, v in self.capacity.items()])
             
-            js += '"vehicle_id": "' + self.get_id() + '"'
+            js += '"vehicle_id": "' + self.id + '"'
             js += ', "vehicle_is_used": true'
             js += ', "vehicle_compartment_set":['
             js += ",".join(['{{"compartment_id":"{0}", "compartment_amount":{1}, "compartment_current_occupation": 0}}'.format(k, v)
@@ -320,7 +276,7 @@ class Vehicle:
             js += ']}'
             return s
 
-        s = '\n###### ' + self.get_id() + \
+        s = '\n###### ' + self.id + \
             ' ###############################################################'
 
         # Print route
@@ -345,30 +301,27 @@ class Vehicle:
 
         """print("LOG LEGS")
         print(Leg.get_labels_line())
-        for v in self.route.get_legs_dic().values():
+        for v in self.route.legs_dic.values():
             print(v)"""
 
         return str(s)
 
-    def get_operational_cost(self):
-        return self.operational_cost
-
     def __str__(self):
         # Get the list of nodes ordered by visitation order
-        #list_nodes = self.route.get_ordered_route()
+        #list_nodes = self.route.ordered_list
 
         # print("LIST NODES: ", list_nodes)
 
         # If vehicle is not used, its data is irrelevant and
         # therefore not shown
         if not self.is_used():
-            s = "->" + self.get_id() +'('+str(self.pos)+')' + "-- STATUS: still"
-            s += "->" + self.get_id() + "-- STATUS: still"
+            s = "->" + self.id +'('+str(self.pos)+')' + "-- STATUS: still"
+            s += "->" + self.id + "-- STATUS: still"
             s += "/".join(['{0:>3}={1:<2}'.format(k, v)
                            for k, v in self.capacity.items()])
             return s
 
-        s = '\n---###### ' + self.get_id() + \
+        s = '\n---###### ' + self.id + \
             ' ###############################################################'
 
         # Print route
@@ -392,21 +345,21 @@ class Vehicle:
 
         """print("LOG LEGS")
         print(Leg.get_labels_line())
-        for v in self.route.get_legs_dic().values():
+        for v in self.route.legs_dic.values():
             print(v)"""
         return str(s)
     
     def get_json(self):
-        print("COLOR:", self.get_color())
+        print("COLOR:", self.color)
         js = '{'
-        js += '"vehicle_id": "' + self.get_id() + '"'
+        js += '"vehicle_id": "' + self.id + '"'
         js += ', "vehicle_is_used":' + str(self.is_used()).lower()
-        js += ', "vehicle_color": "' + self.get_color()+ '"'
+        js += ', "vehicle_color": "' + self.color+ '"'
         js += ', "available_at":"{0}"'.format(
-            Node.get_formatted_time(self.get_available_at()))
-        js += ', "lat":' + str(self.get_pos().get_coord().get_y())
-        js += ', "lng":' + str(self.get_pos().get_coord().get_x())
-        js += ', "autonomy":' + str(self.get_autonomy())
+            Node.get_formatted_time(self.available_at))
+        js += ', "lat":' + str(self.pos.coord.y)
+        js += ', "lng":' + str(self.pos.coord.x)
+        js += ', "autonomy":' + str(self.autonomy)
         js += ', "vehicle_compartment_set":['
         js += ",".join(['{{"compartment_id":"{0}", "compartment_amount":{1}, "compartment_avg_occupancy": {2}}}'.format(
             k, v, self.avg_occupancy_c[k]) for k, v in self.capacity.items()])

@@ -74,9 +74,6 @@ class Dao(object):
             print("Unable to open file")
             return {}
 
-    def get_distance_matrix(self):
-        return self.distance_matrix
-
     def get_distance_from_to(self, p1, p2, mode=None):
         dic_dist_mode = dict()
         if mode:
@@ -90,60 +87,6 @@ class Dao(object):
                     dic_dist_mode[m] = self.distance_matrix[tuple]
         return dic_dist_mode
 
-    def get_capacity_vehicles(self):
-        return self.capacity_vehicles
-
-    def get_earliest_t_dic(self):
-        return self.earliest_t
-
-    def get_max_pickup_delay(self):
-        return self.max_pickup_delay
-
-    def get_max_delivery_delay(self):
-        return self.max_delivery_delay
-
-    def get_earliest_tstamp_dic(self):
-        return self.earliest_tstamp
-
-    def get_pk_points_list(self):
-        return self.pk_points_list
-
-    def get_dl_points_list(self):
-        return self.dl_points_list
-
-    def get_pd_nodes_list(self):
-        return self.pd_nodes
-
-    def get_request_dic(self):
-        return self.request_dic
-
-    def get_pd_tuples(self):
-        return self.pd_tuples
-
-    def get_pd_pairs(self):
-        return self.pd_pairs
-
-    def get_vehicle_dic(self):
-        return self.vehicle_dic
-
-    def get_pk_dl(self):
-        return self.pk_dl
-
-    def get_vehicles_nodes(self):
-        return self.vehicles_nodes
-
-    def get_vehicle_list(self):
-        return self.vehicle_list
-
-    def get_request_list(self):
-        return self.request_list
-
-    def get_vehicle_list(self):
-        return self.vehicle_list
-
-    def get_nodes_dic(self):
-        return self.nodes_dic
-
     def get_modes_from_to(self, dist):
         """"Find which modes can depart from PK nodes and arrive at DL.
 
@@ -153,11 +96,11 @@ class Dao(object):
         """
 
         pk_dl_modes = defaultdict(set)
-        for pk, r in self.get_request_dic().items():
-            pk_id_nw = r.get_origin().get_network_id()
-            dl_id_nw = r.get_destination().get_network_id()
-            pk_id = r.get_origin().get_id()
-            dl_id = r.get_destination().get_id()
+        for pk, r in self.request_dic.items():
+            pk_id_nw = r.origin.network_node_id
+            dl_id_nw = r.destination.network_node_id
+            pk_id = r.origin.id
+            dl_id = r.destination.id
 
             for mode, target in dist[pk_id_nw].items():
                 if dl_id_nw in target:
@@ -173,7 +116,7 @@ class Dao(object):
         to = defaultdict(set)
         for p1, p2, m in network.keys():
 
-            if isinstance(self.get_nodes_dic()[p1], NodePK):
+            if isinstance(self.nodes_dic[p1], NodePK):
                 to[p1].add(p2)
 
         logger.debug(pprint.pformat(to))
@@ -200,8 +143,8 @@ class Dao(object):
 
         # For every node
         for p1 in self.nodes_dic.values():
-            p1_id = p1.get_id()
-            p1_nw_id = p1.get_network_id()
+            p1_id = p1.id
+            p1_nw_id = p1.network_node_id
 
             # Create the dictionary of nodes connected to p1
             nodes_network[p1_id] = dict()
@@ -211,19 +154,19 @@ class Dao(object):
 
                 # For every possible target node
                 for p2 in self.nodes_dic.values():
-                    p2_id = p2.get_id()
-                    p2_nw_id = p2.get_network_id()
+                    p2_id = p2.id
+                    p2_nw_id = p2.network_node_id
 
                     # There is no looping arc
                     if p1_id == p2_id:
                         continue
 
                     # Only modes allowed to visit p2's origin/destination can be combined to p2
-                    if not isinstance(self.get_nodes_dic()[p2_id], NodeDepot) and mode not in modes_from_to[p2_id]:
+                    if not isinstance(self.nodes_dic[p2_id], NodeDepot) and mode not in modes_from_to[p2_id]:
                         continue
 
                     # Only modes allowed to visit p1's origin/destination can be combined to p1
-                    if not isinstance(self.get_nodes_dic()[p1_id], NodeDepot) and mode not in modes_from_to[p1_id]:
+                    if not isinstance(self.nodes_dic[p1_id], NodeDepot) and mode not in modes_from_to[p1_id]:
                         continue
 
                     """
@@ -251,11 +194,11 @@ class Dao(object):
                         continue
 
                     # There are no arcs from starting nodes to delivery nodes
-                    if p1_id in self.starting_nodes_dic.keys() and isinstance(self.get_nodes_dic()[p2_id], NodeDL):
+                    if p1_id in self.starting_nodes_dic.keys() and isinstance(self.nodes_dic[p2_id], NodeDL):
                         continue
 
                     # There are no arcs from origin to depots
-                    if p2_id in self.starting_nodes_dic.keys() and isinstance(self.get_nodes_dic()[p1_id], NodePK):
+                    if p2_id in self.starting_nodes_dic.keys() and isinstance(self.nodes_dic[p1_id], NodePK):
                         continue
 
                     try:
@@ -266,8 +209,8 @@ class Dao(object):
                         if p2_id != dl:
                             max_ride = self.times[p1_id, dl, mode_vehicle] + \
                                 self.max_delivery_delay[i]
-                            t_i_j = self.times[p1_id, dl, mode_vehicle] + self.nodes_dic[p1_id].get_service_t()
-                            t_j_dl = self.times[, dl, mode_vehicle] + self.nodes_dic[j].get_service_t()
+                            t_i_j = self.times[p1_id, dl, mode_vehicle] + self.nodes_dic[p1_id].service_t
+                            t_j_dl = self.times[, dl, mode_vehicle] + self.nodes_dic[j].service_t
                             if t_i_j + t_j_dl > max_ride:
                                 continue"""
                         if mode not in nodes_network[p1_id].keys():
@@ -338,9 +281,6 @@ class Dao(object):
     def copy(self):
         return copy.deepcopy(self)
 
-    def get_reachable(self):
-        return self.reachable
-
     def create_earliest_latest_dic(self):
         logger.debug("Creating earliest latest time data...")
         self.e_l = defaultdict(dict)
@@ -349,8 +289,8 @@ class Dao(object):
         logger.debug("Earliest time: %s", earliest_tstamp)
 
         for r in self.request_list:
-            p1 = r.get_origin().get_id()
-            p2 = r.get_destination().get_id()
+            p1 = r.origin.id
+            p2 = r.destination.id
             for m in self.nodes_network[p1].keys():
                 if p2 in self.nodes_network[p1][m].keys():
                     logger.debug("%s [%s] %s", p1, m, p2)
@@ -360,8 +300,8 @@ class Dao(object):
                     dist_p1_p2 = self.distance_matrix[(p1, p2, m)]
                     pk_delay_p1 = r.get_pickup_delay()
                     dl_delay_p2 = r.get_delivery_delay()
-                    service_p1 = self.get_nodes_dic()[p1].get_service_t()
-                    service_p2 = self.get_nodes_dic()[p2].get_service_t()
+                    service_p1 = self.nodes_dic[p1].service_t
+                    service_p2 = self.nodes_dic[p2].service_t
                     self.e_l[(m, p1)]["earliest"] = revealing_r
                     self.e_l[(m, p1)]["delay"] = pk_delay_p1
                     self.e_l[(m, p1)]["service"] = service_p1
@@ -397,10 +337,10 @@ class Dao(object):
                     logger.debug("%s - %s -> %s", p2, Node.get_formatted_time_h(self.e_l[(
                         m, p2)]["earliest"] + earliest_tstamp), Node.get_formatted_time_h(self.e_l[(m, p2)]["latest"] + earliest_tstamp))
 
-        for v in self.get_vehicle_dic().values():
-            m = v.get_type()
-            o = v.get_pos().get_id()
-            start = v.get_available_at()
+        for v in self.vehicle_dic.values():
+            m = v.type_vehicle
+            o = v.pos.id
+            start = v.available_at
             self.e_l[(m, o)]["earliest"] = 0
             self.e_l[(m, o)]["latest"] = 24 * 3600
             self.e_l[(m, o)]["delay"] = 0
@@ -594,12 +534,6 @@ class DaoHybrid(Dao):
 
         return vehicle_list
 
-    def get_discount_passenger(self):
-        return self.discount_passenger
-
-    def get_pd_network_tuples(self):
-        return self.pd_network_tuples
-
     def __init__(self,  test_case):
         
         self.scenario = test_case["s"]
@@ -624,27 +558,27 @@ class DaoHybrid(Dao):
         self.vehicle_list = self.get_individual_vehicles_from()
 
         # vehicles dictionary
-        self.vehicle_dic = {v.get_id(): v for v in self.vehicle_list}
+        self.vehicle_dic = {v.id: v for v in self.vehicle_list}
 
         # Create dictionary of starting points in each vehicle
-        self.starting_nodes_dic = {self.get_vehicle_dic()[k]
-                                       .get_pos()
-                                       .get_id():
-                                   self.get_vehicle_dic()[k]
-                                       .get_pos()
-                                   for k in self.get_vehicle_dic().keys()}
+        self.starting_nodes_dic = {self.vehicle_dic[k]
+                                       .pos
+                                       .id:
+                                   self.vehicle_dic[k]
+                                       .pos
+                                   for k in self.vehicle_dic.keys()}
 
         # Create dictionary of starting points in each vehicle (NW)
-        self.starting_nodes_dic_nw = {self.get_vehicle_dic()[k]
-                                      .get_pos()
-                                      .get_network_id():
-                                      self.get_vehicle_dic()[k]
-                                      .get_pos()
-                                      for k in self.get_vehicle_dic().keys()}
+        self.starting_nodes_dic_nw = {self.vehicle_dic[k]
+                                      .pos
+                                      .network_node_id:
+                                      self.vehicle_dic[k]
+                                      .pos
+                                      for k in self.vehicle_dic.keys()}
 
         # Create dictionary of starting points in each vehicle
-        self.vehicles_nodes = {v.get_pos().get_id(): v
-                               for v in self.get_vehicle_dic().values()}
+        self.vehicles_nodes = {v.pos.id: v
+                               for v in self.vehicle_dic.values()}
 
         # Add starting points of vehicles
         for k, v in self.starting_nodes_dic.items():
@@ -662,64 +596,64 @@ class DaoHybrid(Dao):
 
         # Insert nodes information in dictionary
         for r in self.request_list:
-            self.nodes_dic[r.get_origin().get_id()] = r.get_origin()
-            self.nodes_dic[r.get_destination().get_id()] = r.get_destination()
-            self.nodes_dic_nw[r.get_origin().get_network_id()] = r.get_origin()
-            self.nodes_dic_nw[r.get_destination().get_network_id()
-                              ] = r.get_destination()
+            self.nodes_dic[r.origin.id] = r.origin
+            self.nodes_dic[r.destination.id] = r.destination
+            self.nodes_dic_nw[r.origin.network_node_id] = r.origin
+            self.nodes_dic_nw[r.destination.network_node_id
+                              ] = r.destination
 
         # The compartments not declared in the request have zero demand
         for n in self.nodes_dic.keys():
             for c in self.fare_locker.keys():
-                if c not in self.nodes_dic[n].get_demand().keys():
-                    self.nodes_dic[n].get_demand()[c] = 0
+                if c not in self.nodes_dic[n].demand.keys():
+                    self.nodes_dic[n].demand[c] = 0
 
         self.request_dic = {
-            r.get_origin().get_id(): r for r in self.request_list}
+            r.origin.id: r for r in self.request_list}
 
         # Number of passengers picked-up or delivered:
         # pk = load and dl = -load
         # se (start/end) = 0
         # Nodes pickup and delivery demands
-        self.pk_dl = {(p,  c): self.nodes_dic[p].get_demand()[c]
+        self.pk_dl = {(p,  c): self.nodes_dic[p].demand[c]
                       for p in self.nodes_dic.keys()
-                      for c in self.nodes_dic[p].get_demand().keys()
+                      for c in self.nodes_dic[p].demand.keys()
                       }
 
         # Define earliest latest times to attend request
-        self.earliest_t = {p.get_origin().get_id(): p.get_revealing()
+        self.earliest_t = {p.origin.id: p.get_revealing()
                            for p in self.request_list}
 
         self.earliest_t.update(
-            {v.get_pos().get_id(): v.get_available_at() for v in self.vehicle_dic.values()})
+            {v.pos.id: v.available_at for v in self.vehicle_dic.values()})
 
         # Define earliest latest times to attend request
-        self.earliest_tstamp = {p.get_origin().get_id(): p.get_revealing_tstamp()
+        self.earliest_tstamp = {p.origin.id: p.get_revealing_tstamp()
                                 for p in self.request_list}
 
-        self.earliest_tstamp.update({v.get_pos().get_id(
-        ): v.get_available_at_tstamp() for v in self.vehicle_dic.values()})
+        self.earliest_tstamp.update({v.pos.get_id(
+        ): v.available_at for v in self.vehicle_dic.values()})
 
         # Define max pick-up delay for each node
-        self.max_pickup_delay = {p.get_origin().get_id(): p.get_pickup_delay()
+        self.max_pickup_delay = {p.origin.id: p.get_pickup_delay()
                                  for p in self.request_list}
 
         self.max_pickup_delay.update(
-            {v.get_pos().get_id(): 0 for v in self.vehicle_dic.values()})
+            {v.pos.id: 0 for v in self.vehicle_dic.values()})
 
         # Define max pick-up delay for each node
-        self.max_delivery_delay = {p.get_origin().get_id(): p.get_delivery_delay()
+        self.max_delivery_delay = {p.origin.id: p.get_delivery_delay()
                                    for p in self.request_list}
 
         self.max_delivery_delay.update(
-            {v.get_pos(): 0 for v in self.vehicle_dic.values()})
+            {v.pos: 0 for v in self.vehicle_dic.values()})
 
         # Set of pick-up points (human)
-        self.pk_points_list = [p.get_origin().get_id()
+        self.pk_points_list = [p.origin.id
                                for p in self.request_list]
 
         # Set of drop-off points (human)
-        self.dl_points_list = [p.get_destination().get_id()
+        self.dl_points_list = [p.destination.id
                                for p in self.request_list]
 
         # List of pk and dp points
@@ -728,29 +662,29 @@ class DaoHybrid(Dao):
         self.pd_nodes.extend(self.dl_points_list)
 
         # List of pickup/delivery tuples from model.Requests
-        self.pd_tuples = [(p.get_origin().get_id(),
-                           p.get_destination().get_id()
+        self.pd_tuples = [(p.origin.id,
+                           p.destination.id
                            ) for p in self.request_list]
 
         # List of pickup/delivery tuples from model.Requests
-        self.pd_network_tuples = [(p.get_origin().get_network_id(),
-                                   p.get_destination().get_network_id()
+        self.pd_network_tuples = [(p.origin.network_node_id,
+                                   p.destination.network_node_id
                                    ) for p in self.request_list]
 
         # Dictionary of pickup/delivery tuples from model.Requests
-        self.pd_pairs = {p.get_origin().get_id(): p.get_destination().get_id()
+        self.pd_pairs = {p.origin.id: p.destination.id
                          for p in self.request_list}
 
-        self.pd_pairs_dl = {p.get_destination().get_id(): p.get_origin().get_id()
+        self.pd_pairs_dl = {p.destination.id: p.origin.id
                             for p in self.request_list}
 
         # Max load per vehicle dictionary
-        self.capacity_vehicles = {(k.get_id(), c): k.get_capacity()[c]
+        self.capacity_vehicles = {(k.id, c): k.capacity[c]
                                   for k in self.vehicle_list
-                                  for c in k.get_capacity()}
+                                  for c in k.capacity}
 
         # List of lockers keys per vehicle
-        self.lockers_v = {k: list(self.vehicle_dic[k].get_capacity().keys())
+        self.lockers_v = {k: list(self.vehicle_dic[k].capacity.keys())
                           for k in self.vehicle_dic.keys()}
 
         super().__init__()
@@ -763,9 +697,6 @@ class DaoHybrid(Dao):
 
         # Printing input data
         self.print_input_data()
-
-    def get_starting_locations_dic(self):
-        return self.starting_nodes_dic
 
     def print_input_data(self):
         print('####################### COMPARTMENT FARE DATA #######################')
@@ -791,22 +722,19 @@ class DaoHybrid(Dao):
 
         print("####################### NODE'S DEMANDS #######################")
         for n in self.nodes_dic.keys():
-            print(self.nodes_dic[n].get_id()
+            print(self.nodes_dic[n].id
                   + " => "
-                  + str({k: self.nodes_dic[n].get_demand()[k]
-                         for k in self.nodes_dic[n].get_demand()
-                         if self.nodes_dic[n].get_demand()[k] != 0}))
+                  + str({k: self.nodes_dic[n].demand[k]
+                         for k in self.nodes_dic[n].demand
+                         if self.nodes_dic[n].demand[k] != 0}))
 
         self.request_dic = {
-            r.get_origin().get_id(): r for r in self.request_list}
+            r.origin.id: r for r in self.request_list}
 
         print("####################### PICK-UP AND DELIVERY DIC #######################")
         for d in self.pk_dl:
             if self.pk_dl[d] != 0:
                 print(str(d) + ":" + str(self.pk_dl[d]))
-
-    def get_fare_locker(self):
-        return self.fare_locker
 
     # Calculate:
     # 1 - the costs of all requests
@@ -817,22 +745,6 @@ class DaoHybrid(Dao):
         for r in self.request_dic.keys():
             self.request_dic[r].calculate_fare_dual(self)
             self.request_dic[r].calculate_embark_disembark_t(self)
-
-    # Lockers data
-    def get_fare_locker_dis(self):
-        return self.fare_locker_dis
-
-    def get_fare_locker_category(self):
-        return self.fare_locker_category
-
-    def get_locker_embarking_t(self):
-        return self.locker_embarking_t
-
-    def get_locker_disembarking_t(self):
-        return self.locker_disembarking_t
-
-    def get_lockers_v(self):
-        return self.lockers_v
 
     # Json
     def get_json_compartment_data(self):

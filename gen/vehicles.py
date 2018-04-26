@@ -94,11 +94,11 @@ def genVehicles(instance_path):
 
                 for c in comp:
                     if isinstance(c, CompartmentHuman):
-                        labelHuman.append(c.get_label())
-                        valueHuman.append(str(c.get_amount()))
+                        labelHuman.append(c.label)
+                        valueHuman.append(str(c.amount))
                     else:
-                        labelFreight.append(c.get_label())
-                        valueFreight.append(str(c.get_amount()))
+                        labelFreight.append(c.label)
+                        valueFreight.append(str(c.amount))
 
                 name_instance = "{0:02}_{1}_{2}.csv".format(v, a, b)
 
